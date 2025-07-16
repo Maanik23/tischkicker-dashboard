@@ -1,39 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background-start-rgb: 18, 18, 18;
-  /* A more vibrant, fiery orange */
-  --background-end-rgb: 50, 22, 10; 
-  --foreground-rgb: 255, 255, 255;
-  
-  /* Orange accent */
-  --primary-glow: rgba(234, 88, 12, 0.4); 
-  --primary-rgb: 234, 88, 12;
-
-  --secondary-glow: rgba(255, 255, 255, 0.1);
-  --card-background: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(255, 255, 255, 0.08);
-}
-
-
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom right,
-      rgb(var(--background-start-rgb)),
-      rgb(var(--background-end-rgb))
-    )
-    no-repeat fixed; /* 'fixed' is crucial for the gradient to not scroll with content */
-  font-family: 'Poppins', sans-serif;
-  min-height: 100vh;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+    @apply bg-gradient-to-br from-gray-900 to-black text-white font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }

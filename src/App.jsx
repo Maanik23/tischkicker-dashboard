@@ -42,7 +42,7 @@ export default function App() {
                 id,
                 ...tourney,
                 participants: tourney.participants || [],
-                games: tourney.games ? Object.values(tourney.games) : [],
+                games: tourney.games ? Object.values(tourney.games).sort((a, b) => (a.player1.name+a.player2.name).localeCompare(b.player1.name+b.player2.name)) : [],
             }));
             setTournaments(tourneyList.sort((a,b) => b.createdAt - a.createdAt)); 
             tLoaded=true; check(); 
@@ -79,14 +79,18 @@ export default function App() {
     const renderTournamentView = () => <Tournament allPlayers={players} tournaments={tournaments} setTournaments={setTournaments} />;
     
     return (
-        <div className="bg-gradient-to-br from-gray-900 to-black text-white font-sans flex min-h-screen">
-            <Sidebar mode={mode} setMode={setMode} view={view} setView={setView} />
-            <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                <Header title={getPageTitle(view, mode)} />
-                <div className="mt-6">
-                    {mode === 'global' ? renderGlobalView() : renderTournamentView()}
+        <div className="bg-gradient-to-t from-gray-900 via-black to-black min-h-screen">
+             <div className="bg-gradient-main">
+                <div className="font-sans text-white flex min-h-screen">
+                    <Sidebar mode={mode} setMode={setMode} view={view} setView={setView} />
+                    <main className="flex-1 p-4 sm:p-6 lg:p-8">
+                        <Header title={getPageTitle(view, mode)} />
+                        <div className="mt-6">
+                            {mode === 'global' ? renderGlobalView() : renderTournamentView()}
+                        </div>
+                    </main>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
@@ -157,6 +161,10 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
 
     return (
         <div className="space-y-8">
+            <div className="bg-black/40 p-6 rounded-lg border border-white/10 mb-8">
+                <h2 className="text-xl font-semibold text-orange-400 mb-2">Willkommen in der WAMOCON Kicker Arena!</h2>
+                <p className="text-gray-300">Dies ist die zentrale Anlaufstelle für alle Tischkicker-Aktivitäten. Verfolgen Sie die globale Rangliste, oder wechseln Sie in den Turniermodus, um Wettbewerbe zu organisieren.</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6"><StatCard title="Top Spieler" value={stats.topPlayer?.name || 'N/A'} icon={Crown}/><StatCard title="Punkte" value={stats.topPlayer?.points || 0} icon={Flame}/><StatCard title="Aktive Spieler" value={stats.totalPlayers} icon={Users}/></div>
             <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-sm">
                 <h2 className="text-xl font-semibold mb-4 text-orange-400">Punkteverlauf der Top 5</h2>
@@ -175,7 +183,23 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
                 </div>
                 <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-sm">
                     <h2 className="text-xl font-semibold mb-4 text-orange-400">Letzte Spiele</h2>
-                    <div className="space-y-4">{matches.slice(-5).reverse().map(m => (<div key={m.id} className="bg-white/5 p-3 rounded-lg text-sm"><div className="flex justify-between items-center font-bold"><span>{playerMap.get(m.player1Id) || '?'}</span><span>vs.</span><span>{playerMap.get(m.player2Id) || '?'}</span></div><div className="flex justify-between items-center mt-1 text-lg"><span className={`font-black ${m.player1Score > m.player2Score ? 'text-green-400' : ''}`}>{m.player1Score}</span><span className={`font-black ${m.player2Score > m.player1Score ? 'text-green-400' : ''}`}>{m.player2Score}</span></div></div>))}</div>
+                    <div className="space-y-4">
+                        {recentMatches.map(m => (
+                            <div key={m.id} className="bg-white/5 p-3 rounded-lg text-sm">
+                                <div className="flex justify-between items-center">
+                                    <div className="text-center w-1/3">
+                                        <div className="font-bold">{playerMap.get(m.player1Id) || '?'}</div>
+                                        <div className={`text-2xl font-black ${m.player1Score > m.player2Score ? 'text-green-400' : ''}`}>{m.player1Score}</div>
+                                    </div>
+                                    <div className="text-center w-1/3 text-gray-400 font-semibold">vs.</div>
+                                    <div className="text-center w-1/3">
+                                        <div className="font-bold">{playerMap.get(m.player2Id) || '?'}</div>
+                                        <div className={`text-2xl font-black ${m.player2Score > m.player1Score ? 'text-green-400' : ''}`}>{m.player2Score}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
