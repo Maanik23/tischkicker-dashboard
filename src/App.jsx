@@ -63,8 +63,22 @@ export default function App() {
         return [...stats.values()].sort((a,b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
     }, [players, matches]);
     
-    const handleAddPlayer = (name) => { const id = push(ref(db, 'players')).key; set(ref(db, `players/${id}`), { id, name }); };
-    const handleAddMatch = (data) => { const id = push(ref(db, 'globalMatches')).key; set(ref(db, `globalMatches/${id}`), { id, ...data, createdAt: Date.now() }); };
+    const handleAddPlayer = (name) => { 
+        const id = push(ref(db, 'players')).key; 
+        set(ref(db, `players/${id}`), { id, name })
+            .catch((error) => {
+                console.error('Error adding player:', error);
+                alert('Fehler beim Hinzufügen des Spielers. Bitte versuchen Sie es erneut.');
+            });
+    };
+    const handleAddMatch = (data) => { 
+        const id = push(ref(db, 'globalMatches')).key; 
+        set(ref(db, `globalMatches/${id}`), { id, ...data, createdAt: Date.now() })
+            .catch((error) => {
+                console.error('Error adding match:', error);
+                alert('Fehler beim Hinzufügen des Spiels. Bitte versuchen Sie es erneut.');
+            });
+    };
     
     const renderGlobalView = () => {
         if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-orange-500"></div></div>;
@@ -79,17 +93,15 @@ export default function App() {
     const renderTournamentView = () => <Tournament allPlayers={players} tournaments={tournaments} setTournaments={setTournaments} />;
     
     return (
-        <div className="bg-gradient-to-t from-gray-900 via-black to-black min-h-screen">
-             <div className="bg-gradient-main">
-                <div className="font-sans text-white flex min-h-screen">
-                    <Sidebar mode={mode} setMode={setMode} view={view} setView={setView} />
-                    <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                        <Header title={getPageTitle(view, mode)} />
-                        <div className="mt-6">
-                            {mode === 'global' ? renderGlobalView() : renderTournamentView()}
-                        </div>
-                    </main>
-                </div>
+        <div className="min-h-screen">
+            <div className="font-sans text-white flex min-h-screen">
+                <Sidebar mode={mode} setMode={setMode} view={view} setView={setView} />
+                <main className="flex-1 p-4 sm:p-6 lg:p-8">
+                    <Header title={getPageTitle(view, mode)} />
+                    <div className="mt-6">
+                        {mode === 'global' ? renderGlobalView() : renderTournamentView()}
+                    </div>
+                </main>
             </div>
         </div>
     );
@@ -108,23 +120,54 @@ const Sidebar = ({ mode, setMode, view, setView }) => {
         tournament: [] // Navigation handled within Tournament component
     };
     return (
-        <aside className="w-64 bg-black/30 p-6 backdrop-blur-sm border-r border-white/10">
-            <div className="mb-12"> <h1 className="text-3xl font-bold text-orange-500 flex items-center gap-2"><Flame/> WAMOCON Arena</h1> </div>
+        <aside className="w-64 sidebar-gradient p-6">
+            <div className="mb-12"> 
+                <h1 className="text-3xl font-bold text-red-400 flex items-center gap-2 red-glow">
+                    <Flame className="animate-pulse-glow"/> WAMOCON Arena
+                </h1> 
+            </div>
             <nav className="space-y-6">
-                <div> <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Modus</h3>
+                <div> 
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Modus</h3>
                     <SidebarButton label="Gesamt" active={mode === 'global'} onClick={() => { setMode('global'); setView('dashboard'); }}/>
                     <SidebarButton label="Turnier" active={mode === 'tournament'} onClick={() => { setMode('tournament'); setView('tournament-list'); }}/>
                 </div>
-                {menuItems[mode].length > 0 && <div><h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Navigation</h3>{menuItems[mode].map(item => <SubSidebarButton key={item.id} {...item} active={view === item.id} onClick={() => setView(item.id)}/>)}</div>}
+                {menuItems[mode].length > 0 && <div><h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Navigation</h3>{menuItems[mode].map(item => <SubSidebarButton key={item.id} {...item} active={view === item.id} onClick={() => setView(item.id)}/>)}</div>}
             </nav>
         </aside>
     );
 };
 
-const SidebarButton = ({ label, active, onClick }) => <button onClick={onClick} className={`w-full text-left px-4 py-2 text-lg rounded-lg ${active ? 'bg-orange-600 text-white' : 'hover:bg-white/10'}`}>{label}</button>;
-const SubSidebarButton = ({ label, icon: Icon, active, onClick }) => <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${active ? 'bg-white/20' : 'hover:bg-white/10'}`}><Icon size={20}/>{label}</button>;
-const Header = ({ title }) => <header className="border-b border-white/10 pb-4"><h1 className="text-4xl font-bold text-white">{title}</h1></header>;
-const StatCard = ({ title, value, icon: Icon }) => <div className="bg-black/40 p-6 rounded-lg border border-white/10 shadow-lg"><div className="flex justify-between items-center"><p className="text-gray-400">{title}</p><Icon size={24} className="text-orange-400"/></div><p className="text-3xl font-bold mt-2">{value}</p></div>;
+const SidebarButton = ({ label, active, onClick }) => (
+    <button onClick={onClick} className={`w-full text-left px-4 py-2 text-lg rounded-lg transition-all duration-300 ${
+        active ? 'btn-primary text-white red-glow' : 'btn-secondary hover:red-glow-hover'
+    }`}>
+        {label}
+    </button>
+);
+
+const SubSidebarButton = ({ label, icon: Icon, active, onClick }) => (
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 ${
+        active ? 'btn-primary text-white red-glow' : 'btn-secondary hover:red-glow-hover'
+    }`}>
+        <Icon size={20}/>{label}
+    </button>
+);
+const Header = ({ title }) => (
+    <header className="border-b border-white/10 pb-4">
+        <h1 className="text-3xl font-bold text-white red-glow-hover">{title}</h1>
+    </header>
+);
+
+const StatCard = ({ title, value, icon: Icon }) => (
+    <div className="gradient-card p-6 rounded-lg shadow-lg hover:gradient-card-hover transition-all duration-300 red-glow-hover">
+        <div className="flex justify-between items-center">
+            <p className="text-xl font-semibold text-gray-300">{title}</p>
+            <Icon size={28} className="text-red-400"/>
+        </div>
+        <p className="text-4xl font-bold mt-2 text-white">{value}</p>
+    </div>
+);
 const CHART_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#00C49F", "#FFBB28"];
 
 const Dashboard = ({ stats, leaderboardData, matches, players }) => {
@@ -161,31 +204,50 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
 
     return (
         <div className="space-y-8">
-            <div className="bg-black/40 p-6 rounded-lg border border-white/10 mb-8">
-                <h2 className="text-xl font-semibold text-orange-400 mb-2">Willkommen in der WAMOCON Kicker Arena!</h2>
-                <p className="text-gray-300">Dies ist die zentrale Anlaufstelle für alle Tischkicker-Aktivitäten. Verfolgen Sie die globale Rangliste, oder wechseln Sie in den Turniermodus, um Wettbewerbe zu organisieren.</p>
+            <div className="gradient-card p-6 rounded-lg mb-8 hover:gradient-card-hover transition-all duration-300">
+                <h2 className="text-2xl font-bold text-red-400 mb-2">Willkommen in der WAMOCON Kicker Arena!</h2>
+                <p className="text-lg text-gray-300">Dies ist die zentrale Anlaufstelle für alle Tischkicker-Aktivitäten. Verfolgen Sie die globale Rangliste, oder wechseln Sie in den Turniermodus, um Wettbewerbe zu organisieren.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6"><StatCard title="Top Spieler" value={stats.topPlayer?.name || 'N/A'} icon={Crown}/><StatCard title="Punkte" value={stats.topPlayer?.points || 0} icon={Flame}/><StatCard title="Aktive Spieler" value={stats.totalPlayers} icon={Users}/></div>
-            <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-sm">
-                <h2 className="text-xl font-semibold mb-4 text-orange-400">Punkteverlauf der Top 5</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard title="Top Spieler" value={stats.topPlayer?.name || 'N/A'} icon={Crown}/>
+                <StatCard title="Punkte" value={stats.topPlayer?.points || 0} icon={Flame}/>
+                <StatCard title="Aktive Spieler" value={stats.totalPlayers} icon={Users}/>
+            </div>
+            <div className="gradient-card p-6 rounded-lg hover:gradient-card-hover transition-all duration-300">
+                <h2 className="text-2xl font-bold mb-4 text-red-400">Punkteverlauf der Top 5</h2>
                 <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={pointsHistory}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)"/><XAxis dataKey="name" stroke="#9CA3AF"/><YAxis stroke="#9CA3AF"/><Tooltip contentStyle={{backgroundColor: '#1F2937', border: '1px solid #374151'}} wrapperClassName="rounded-lg"/><Legend />
-                        {top5Players.map((player, i) => (<Line key={player.id} type="monotone" dataKey={player.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2}/>))}
+                    <LineChart data={pointsHistory}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)"/>
+                        <XAxis dataKey="name" stroke="#9CA3AF"/>
+                        <YAxis stroke="#9CA3AF"/>
+                        <Tooltip contentStyle={{backgroundColor: '#1F2937', border: '1px solid #374151'}} wrapperClassName="rounded-lg"/>
+                        <Legend />
+                        {top5Players.map((player, i) => (
+                            <Line key={player.id} type="monotone" dataKey={player.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2}/>
+                        ))}
                     </LineChart>
                 </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-sm">
-                    <h2 className="text-xl font-semibold mb-4 text-orange-400">Sieg/Niederlage-Verhältnis</h2>
-                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={winLossData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)"/><XAxis dataKey="name" stroke="#9CA3AF"/><YAxis stroke="#9CA3AF"/><Tooltip contentStyle={{backgroundColor: '#1F2937', border: '1px solid #374151'}} wrapperClassName="rounded-lg"/><Legend /><Bar dataKey="Siege" fill="#22c55e" /><Bar dataKey="Niederlagen" fill="#ef4444" /></BarChart>
+                <div className="gradient-card p-6 rounded-lg hover:gradient-card-hover transition-all duration-300">
+                    <h2 className="text-2xl font-bold mb-4 text-red-400">Sieg/Niederlage-Verhältnis</h2>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={winLossData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)"/>
+                            <XAxis dataKey="name" stroke="#9CA3AF"/>
+                            <YAxis stroke="#9CA3AF"/>
+                            <Tooltip contentStyle={{backgroundColor: '#1F2937', border: '1px solid #374151'}} wrapperClassName="rounded-lg"/>
+                            <Legend />
+                            <Bar dataKey="Siege" fill="#22c55e" />
+                            <Bar dataKey="Niederlagen" fill="#ef4444" />
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-sm">
-                    <h2 className="text-xl font-semibold mb-4 text-orange-400">Letzte Spiele</h2>
+                <div className="gradient-card p-6 rounded-lg hover:gradient-card-hover transition-all duration-300">
+                    <h2 className="text-2xl font-bold mb-4 text-red-400">Letzte Spiele</h2>
                     <div className="space-y-4">
                         {recentMatches.map(m => (
-                            <div key={m.id} className="bg-white/5 p-3 rounded-lg text-sm">
+                            <div key={m.id} className="bg-white/5 p-3 rounded-lg text-sm hover:bg-white/10 transition-colors">
                                 <div className="flex justify-between items-center">
                                     <div className="text-center w-1/3">
                                         <div className="font-bold">{playerMap.get(m.player1Id) || '?'}</div>
@@ -206,11 +268,94 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
     );
 };
 
-const Rangliste = ({ data }) => ( <div className="bg-black/40 rounded-lg border border-white/10 backdrop-blur-sm overflow-hidden"> <table className="w-full"> <thead><tr className="border-b border-white/20 bg-white/5"><th className="p-4 text-left text-sm font-semibold text-orange-400 uppercase">Rang</th><th className="p-4 text-left text-sm font-semibold text-orange-400 uppercase">Spieler</th><th className="p-4 text-left text-sm font-semibold text-orange-400 uppercase">Punkte</th><th className="p-4 text-left text-sm font-semibold text-orange-400 uppercase">Spiele</th><th className="p-4 text-left text-sm font-semibold text-orange-400 uppercase">S/U/N</th></tr></thead> <tbody>{data.map((p, i) => (<tr key={p.id} className="hover:bg-white/10 border-b border-white/5 last:border-0"><td className="p-4 font-bold text-xl">{i + 1}</td><td className="p-4 font-semibold text-lg flex items-center gap-3"><span>{getRankFromPoints(p.points).icon}</span>{p.name}</td><td className="p-4 font-bold text-orange-400 text-lg">{p.points}</td><td className="p-4 text-lg">{p.played}</td><td className="p-4 text-lg"><span className="text-green-400">{p.wins}</span>/<span className="text-yellow-400">{p.draws}</span>/<span className="text-red-400">{p.losses}</span></td></tr>))}</tbody> </table> </div> );
-const Spieler = ({ players, onAddPlayer }) => { const [name, setName] = useState(''); const handleSubmit = e => { e.preventDefault(); onAddPlayer(name); setName(''); }; return (<><form onSubmit={handleSubmit} className="bg-black/40 p-6 rounded-lg border border-white/10 flex gap-4"><input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Spielername" required className="flex-1 px-4 py-2 bg-gray-700 border-gray-600 rounded-lg"/><button type="submit" className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"><Plus/>Hinzufügen</button></form><div className="bg-black/40 rounded-lg mt-6">{players.map(p => <div key={p.id} className="p-4 border-b border-white/10 last:border-0">{p.name}</div>)}</div></>); };
+const Rangliste = ({ data }) => ( 
+    <div className="gradient-card rounded-lg overflow-hidden hover:gradient-card-hover transition-all duration-300"> 
+        <table className="w-full"> 
+            <thead>
+                <tr className="border-b border-white/20 bg-white/5">
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Rang</th>
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Spieler</th>
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Punkte</th>
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Spiele</th>
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">S/U/N</th>
+                </tr>
+            </thead> 
+            <tbody>
+                {data.map((p, i) => (
+                    <tr key={p.id} className="hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors">
+                        <td className="p-4 font-bold text-xl">{i + 1}</td>
+                        <td className="p-4 font-semibold text-lg flex items-center gap-3">
+                            <span>{getRankFromPoints(p.points).icon}</span>{p.name}
+                        </td>
+                        <td className="p-4 font-bold text-red-400 text-lg">{p.points}</td>
+                        <td className="p-4 text-lg">{p.played}</td>
+                        <td className="p-4 text-lg">
+                            <span className="text-green-400">{p.wins}</span>/<span className="text-yellow-400">{p.draws}</span>/<span className="text-red-400">{p.losses}</span>
+                        </td>
+                    </tr>
+                ))}
+            </tbody> 
+        </table> 
+    </div> 
+);
+
+const Spieler = ({ players, onAddPlayer }) => { 
+    const [name, setName] = useState(''); 
+    const handleSubmit = e => { e.preventDefault(); onAddPlayer(name); setName(''); }; 
+    return (
+        <>
+            <form onSubmit={handleSubmit} className="gradient-card p-6 rounded-lg flex gap-4 hover:gradient-card-hover transition-all duration-300">
+                <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Spielername" required className="flex-1 px-4 py-2 bg-gray-700 border-gray-600 rounded-lg focus:border-red-500 focus:outline-none transition-colors"/>
+                <button type="submit" className="btn-primary px-6 py-2 text-lg font-bold text-white rounded-lg flex items-center gap-2">
+                    <Plus/>Hinzufügen
+                </button>
+            </form>
+            <div className="gradient-card rounded-lg mt-6 hover:gradient-card-hover transition-all duration-300">
+                {players.map(p => <div key={p.id} className="p-4 border-b border-white/10 last:border-0 hover:bg-white/5 transition-colors">{p.name}</div>)}
+            </div>
+        </>
+    ); 
+};
 const NeuesSpiel = ({ players, onAddMatch }) => {
     const [data, setData] = useState({ player1Id: '', player2Id: '', player1Score: '', player2Score: '' });
-    const handleSubmit = e => { e.preventDefault(); onAddMatch({ ...data, player1Score: Number(data.player1Score), player2Score: Number(data.player2Score) }); setData({ player1Id: '', player2Id: '', player1Score: '', player2Score: '' }); };
+    
+    const handleSubmit = e => { 
+        e.preventDefault(); 
+        
+        const score1 = Number(data.player1Score);
+        const score2 = Number(data.player2Score);
+        
+        // Validate that one player has reached 10 points
+        if (score1 < 10 && score2 < 10) {
+            alert('Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.');
+            return;
+        }
+        
+        // Validate that the winner has exactly 10 points
+        if (score1 > 10 && score2 > 10) {
+            alert('Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.');
+            return;
+        }
+        
+        onAddMatch({ ...data, player1Score: score1, player2Score: score2 }); 
+        setData({ player1Id: '', player2Id: '', player1Score: '', player2Score: '' }); 
+    };
+    
     const playerOptions = players.map(p => ({value: p.id, label: p.name}));
-    return ( <form onSubmit={handleSubmit} className="bg-black/40 p-8 rounded-lg border border-white/10 space-y-6 max-w-2xl mx-auto"> <div className="grid grid-cols-2 gap-6"> <div><label className="block mb-2">Spieler 1</label><Select styles={customSelectStyles} options={playerOptions} onChange={opt => setData({...data, player1Id: opt.value})} required/></div> <div><label className="block mb-2">Punkte Spieler 1</label><input type="number" min="0" value={data.player1Score} onChange={e=>setData({...data, player1Score: e.target.value})} required className="w-full h-[48px] px-4 bg-gray-700 rounded-lg"/></div> </div> <div className="grid grid-cols-2 gap-6"> <div><label className="block mb-2">Spieler 2</label><Select styles={customSelectStyles} options={playerOptions} onChange={opt => setData({...data, player2Id: opt.value})} required/></div> <div><label className="block mb-2">Punkte Spieler 2</label><input type="number" min="0" value={data.player2Score} onChange={e=>setData({...data, player2Score: e.target.value})} required className="w-full h-[48px] px-4 bg-gray-700 rounded-lg"/></div> </div> <button type="submit" className="w-full py-3 bg-orange-600 text-white rounded-lg text-lg font-semibold hover:bg-orange-700 flex items-center justify-center gap-2"><Swords/>Spiel speichern</button> </form> );
+    return ( 
+        <form onSubmit={handleSubmit} className="gradient-card p-8 rounded-lg space-y-6 max-w-2xl mx-auto hover:gradient-card-hover transition-all duration-300"> 
+            <div className="mb-4 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
+                <p className="text-blue-300 text-sm">📋 <strong>Spielregeln:</strong> Das Spiel endet, wenn ein Spieler 10 Punkte erreicht. Nur ein Spieler kann 10 Punkte haben.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-6"> 
+                <div><label className="block mb-2 text-gray-300">Spieler 1</label><Select styles={customSelectStyles} options={playerOptions} onChange={opt => setData({...data, player1Id: opt.value})} required/></div> 
+                <div><label className="block mb-2 text-gray-300">Punkte Spieler 1</label><input type="number" min="0" max="10" placeholder="0-10" value={data.player1Score} onChange={e=>setData({...data, player1Score: e.target.value})} required className="w-full h-[48px] px-4 bg-gray-700 rounded-lg border border-gray-600 focus:border-orange-500 focus:outline-none transition-colors"/></div> 
+            </div> 
+            <div className="grid grid-cols-2 gap-6"> 
+                <div><label className="block mb-2 text-gray-300">Spieler 2</label><Select styles={customSelectStyles} options={playerOptions} onChange={opt => setData({...data, player2Id: opt.value})} required/></div> 
+                <div><label className="block mb-2 text-gray-300">Punkte Spieler 2</label><input type="number" min="0" max="10" placeholder="0-10" value={data.player2Score} onChange={e=>setData({...data, player2Score: e.target.value})} required className="w-full h-[48px] px-4 bg-gray-700 rounded-lg border border-gray-600 focus:border-orange-500 focus:outline-none transition-colors"/></div> 
+            </div> 
+            <button type="submit" className="w-full py-3 btn-primary text-lg font-bold text-white rounded-lg flex items-center justify-center gap-2"><Swords/>Spiel speichern</button> 
+        </form> 
+    );
 };

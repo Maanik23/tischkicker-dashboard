@@ -18,7 +18,13 @@ const ManageParticipants = ({ tournament, allPlayers, onFinish }) => {
             setParticipants(updatedParticipants);
             // Also update in Firebase immediately
             const tournamentRef = ref(db, `tournaments/${tournament.id}`);
-            update(tournamentRef, { participants: updatedParticipants });
+            update(tournamentRef, { participants: updatedParticipants })
+                .catch((error) => {
+                    console.error('Error adding player:', error);
+                    alert('Fehler beim Hinzufügen des Spielers. Bitte versuchen Sie es erneut.');
+                    // Revert local state on error
+                    setParticipants(participants);
+                });
         }
     };
 
@@ -27,16 +33,22 @@ const ManageParticipants = ({ tournament, allPlayers, onFinish }) => {
         setParticipants(updatedParticipants);
         // Also update in Firebase immediately
         const tournamentRef = ref(db, `tournaments/${tournament.id}`);
-        update(tournamentRef, { participants: updatedParticipants });
+        update(tournamentRef, { participants: updatedParticipants })
+            .catch((error) => {
+                console.error('Error removing player:', error);
+                alert('Fehler beim Entfernen des Spielers. Bitte versuchen Sie es erneut.');
+                // Revert local state on error
+                setParticipants(participants);
+            });
     };
 
     return (
-        <div className="bg-black/40 p-8 rounded-lg border border-white/10 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-orange-400 mb-2">Teilnehmer für "{tournament.name}"</h2>
+        <div className="gradient-card p-8 rounded-lg max-w-3xl mx-auto hover:gradient-card-hover transition-all duration-300">
+                            <h2 className="text-2xl font-bold text-red-400 mb-2 red-glow-hover">Teilnehmer für "{tournament.name}"</h2>
             <p className="text-gray-400 mb-6">Fügen Sie Spieler zum Turnier hinzu. Sie können das Turnier starten, sobald mindestens zwei Spieler hinzugefügt wurden.</p>
 
             <div className="mb-6">
-                <h3 className="text-xl font-semibold mb-3">Spieler hinzufügen</h3>
+                <h3 className="text-xl font-semibold mb-3 text-gray-300">Spieler hinzufügen</h3>
                 <Select
                     options={availablePlayers}
                     onChange={handleAddPlayer}
@@ -47,12 +59,12 @@ const ManageParticipants = ({ tournament, allPlayers, onFinish }) => {
             </div>
             
             <div className="border-t border-white/10 pt-6 mb-8">
-                <h3 className="text-xl font-semibold mb-3">Aktuelle Teilnehmer ({participants.length})</h3>
+                <h3 className="text-xl font-semibold mb-3 text-gray-300">Aktuelle Teilnehmer ({participants.length})</h3>
                 <ul className="space-y-2">
                     {participants.map(p => (
-                        <li key={p.id} className="flex justify-between items-center bg-white/5 p-3 rounded-lg">
-                            <span>{p.name}</span>
-                            <button onClick={() => handleRemovePlayer(p.id)} className="text-red-500 hover:text-red-400">Entfernen</button>
+                        <li key={p.id} className="flex justify-between items-center bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors">
+                            <span className="text-white">{p.name}</span>
+                            <button onClick={() => handleRemovePlayer(p.id)} className="text-red-500 hover:text-red-400 transition-colors">Entfernen</button>
                         </li>
                     ))}
                     {participants.length === 0 && <p className="text-gray-400">Noch keine Teilnehmer.</p>}
@@ -62,7 +74,11 @@ const ManageParticipants = ({ tournament, allPlayers, onFinish }) => {
             <button
                 onClick={onFinish}
                 disabled={participants.length < 2}
-                className="w-full py-3 bg-green-600 text-white rounded-lg text-lg font-semibold hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className={`w-full py-3 text-white rounded-lg text-lg font-semibold transition-all duration-300 ${
+                    participants.length >= 2 
+                        ? 'btn-primary' 
+                        : 'bg-gray-600 cursor-not-allowed'
+                }`}
             >
                 Turnier starten
             </button>
