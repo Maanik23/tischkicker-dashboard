@@ -1,171 +1,131 @@
-# Tischkicker Dashboard
+# WAMOCON Kicker Arena
 
-Ein modernes Dashboard für die Verwaltung von Tischkicker-Turnieren mit React, Firebase und Tailwind CSS.
+Die WAMOCON Kicker Arena ist eine moderne Webanwendung zur Verwaltung und Verfolgung von Tischkicker-Ergebnissen. Sie bietet eine globale Rangliste für alle Spieler sowie einen dedizierten Turniermodus, um strukturierte Wettbewerbe durchzuführen.
+
+Das Dashboard ist mit React, Vite und Firebase erstellt und verwendet Tailwind CSS für ein ansprechendes, responsives Design.
+
+![Turnier-Übersicht](https://i.imgur.com/your-screenshot-url.png) <!-- Fügen Sie hier einen Screenshot Ihrer App ein -->
 
 ## Features
 
-- 📊 **Dashboard**: Übersicht über Statistiken und Punkteverlauf
-- 🏆 **Rangliste**: Aktuelle Spieler-Rangliste mit detaillierten Statistiken
-- 👥 **Spieler-Verwaltung**: Hinzufügen und Verwalten von Spielern
-- ⚽ **Spiel-Eingabe**: Neue Matches eintragen (Best of 3)
-- 📈 **Live-Updates**: Echtzeit-Updates über Firebase
-- 🎨 **Modernes Design**: Responsive UI mit Tailwind CSS
+Die Anwendung ist in zwei Hauptmodi unterteilt:
 
-## Voraussetzungen
+### 🌍 Globaler Modus
 
-- Node.js (LTS Version)
-- npm oder yarn
-- Firebase-Projekt
+-   **Dashboard**: Bietet eine schnelle Übersicht über die wichtigsten Statistiken wie den Top-Spieler, Gesamtspieler- und Match-Anzahl.
+-   **Umfassende Rangliste**: Sortiert alle Spieler nach Punkten, Siegen und Tordifferenz. Ränge (Bronze bis Meister) visualisieren den Spieler-Skill.
+-   **Spieler-Verwaltung**: Einfaches Hinzufügen und Anzeigen von Spielern, die an den Matches teilnehmen.
+-   **Match-Erfassung**: Ein intuitives Formular, um neue Spielergebnisse schnell und einfach zu speichern.
+-   **Datenvisualisierung**: Interaktive Diagramme zeigen den Punkteverlauf der Top-Spieler sowie deren Sieg/Niederlage-Verhältnisse.
 
-## Installation
+### 🏆 Turnier-Modus
 
-1. **Repository klonen oder Dateien herunterladen**
+-   **Turnier-Erstellung**: Erstellen Sie neue Turniere mit nur einem Klick.
+-   **Flexibles Teilnehmer-Management**: Fügen Sie Teilnehmer aus der globalen Spielerliste über ein Dropdown-Menü hinzu oder entfernen Sie sie, solange das Turnier noch nicht gestartet ist.
+-   **Automatisierte Spiel-Generierung**: Nach dem Starten eines Turniers wird automatisch ein Round-Robin-Spielplan erstellt (jeder spielt gegen jeden).
+-   **Spiel-Erfassung**: Tragen Sie die Ergebnisse für jedes Turnierspiel ein.
+-   **Turnier-Statistiken**: Eine dedizierte Rangliste und ein Punkte-Chart für jedes Turnier, um den Fortschritt zu verfolgen.
+-   **Visueller Turnierbaum**: Eine an das Champions-League-Design angelehnte Visualisierung der Begegnungen der ersten Runde.
 
-2. **Abhängigkeiten installieren**
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-3. **Firebase-Konfiguration einrichten**
-   
-   Kopiere die Datei `env.example` zu `.env.local`:
-   ```bash
-   cp env.example .env.local
-   ```
-   
-   Bearbeite `.env.local` und füge deine Firebase-Konfiguration ein:
-   ```env
-   VITE_FIREBASE_API_KEY="dein-api-key"
-   VITE_FIREBASE_AUTH_DOMAIN="dein-projekt.firebaseapp.com"
-   VITE_FIREBASE_PROJECT_ID="dein-projekt-id"
-   VITE_FIREBASE_STORAGE_BUCKET="dein-projekt.appspot.com"
-   VITE_FIREBASE_MESSAGING_SENDER_ID="123456789"
-   VITE_FIREBASE_APP_ID="1:123456789:web:abcdef123456"
-   ```
+-   **Frontend**: React, Vite
+-   **Backend & Datenbank**: Firebase (Realtime Database, Hosting)
+-   **Styling**: Tailwind CSS
+-   **Diagramme**: Recharts, Chart.js
+-   **UI-Komponenten**: Lucide React (Icons), React Select
 
-4. **Entwicklungsserver starten**
-   ```bash
-   npm run dev
-   ```
+## Getting Started
 
-5. **Anwendung öffnen**
-   
-   Öffne [http://localhost:5173](http://localhost:5173) in deinem Browser.
+Folgen Sie diesen Schritten, um das Projekt lokal einzurichten und auszuführen.
 
-## Firebase-Setup
+### Voraussetzungen
 
-1. **Firebase-Projekt erstellen**
-   - Gehe zu [Firebase Console](https://console.firebase.google.com/)
-   - Erstelle ein neues Projekt oder verwende ein bestehendes
+-   Node.js (v18 oder höher)
+-   npm (wird mit Node.js installiert)
+-   Ein Firebase-Projekt
 
-2. **Firestore Database aktivieren**
-   - Gehe zu "Firestore Database" im Firebase Console
-   - Klicke auf "Datenbank erstellen"
-   - Wähle "Testmodus starten" für die Entwicklung
+### 1. Repository klonen
 
-3. **Web-App hinzufügen**
-   - Gehe zu "Projekteinstellungen" (Zahnrad-Symbol)
-   - Unter "Deine Apps" klicke auf das Web-Symbol
-   - Registriere die App und kopiere die Konfiguration
-
-4. **Sicherheitsregeln (optional)**
-   
-   Für die Produktion solltest du Firestore-Sicherheitsregeln konfigurieren:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /artifacts/{appId}/public/data/{document=**} {
-         allow read, write: if true; // Für Entwicklung
-       }
-     }
-   }
-   ```
-
-## Verwendung
-
-### Spieler hinzufügen
-1. Gehe zur "Spieler"-Seite
-2. Gib den Namen des Spielers ein
-3. Klicke auf "Hinzufügen"
-
-### Neues Spiel eintragen
-1. Gehe zur "Neues Spiel"-Seite
-2. Wähle zwei verschiedene Spieler aus
-3. Gib die Punkte ein (0-3 für jeden Spieler)
-4. Klicke auf "Spiel eintragen"
-
-### Rangliste anzeigen
-- Die Rangliste wird automatisch basierend auf den gespielten Matches berechnet
-- Punkte: 3 für Sieg, 1 für Teilnahme
-- Bei gleichen Punkten entscheidet die Tordifferenz
-
-## Projektstruktur
-
-```
-kicker-dashboard/
-├── src/
-│   ├── App.jsx          # Hauptkomponente
-│   ├── main.jsx         # Einstiegspunkt
-│   └── index.css        # Tailwind CSS
-├── public/              # Statische Dateien
-├── package.json         # Abhängigkeiten
-├── vite.config.js       # Vite-Konfiguration
-├── tailwind.config.js   # Tailwind-Konfiguration
-├── postcss.config.js    # PostCSS-Konfiguration
-├── .env.local           # Firebase-Konfiguration (nicht im Git)
-└── README.md           # Diese Datei
+```bash
+git clone https://github.com/your-username/kicker-dashboard.git
+cd kicker-dashboard
 ```
 
-## Technologien
+### 2. Abhängigkeiten installieren
 
-- **React 18**: Moderne React-Features und Hooks
-- **Vite**: Schneller Build-Tool und Dev-Server
-- **Firebase**: Backend-as-a-Service (Auth, Firestore)
-- **Tailwind CSS**: Utility-first CSS Framework
-- **Lucide React**: Moderne Icons
-- **Recharts**: React-Charting-Bibliothek
+```bash
+npm install
+```
 
-## Entwicklung
+### 3. Firebase konfigurieren
 
-### Verfügbare Scripts
+1.  Erstellen Sie ein neues Projekt in der [Firebase Console](https://console.firebase.google.com/).
+2.  Gehen Sie zu den Projekteinstellungen und fügen Sie eine neue Web-App hinzu.
+3.  Kopieren Sie das `firebaseConfig`-Objekt.
+4.  Erstellen Sie eine neue Datei unter `src/firebaseConfig.js`.
+5.  Fügen Sie Ihre Konfiguration in die Datei ein und exportieren Sie die `db`-Instanz, wie unten gezeigt:
 
-- `npm run dev` - Startet den Entwicklungsserver
-- `npm run build` - Erstellt eine Produktions-Build
-- `npm run preview` - Zeigt die Produktions-Build lokal an
-- `npm run lint` - Führt ESLint aus
+```javascript
+// src/firebaseConfig.js
 
-### Anpassungen
+import { initializeApp } from "firebase/app";
+import { getDatabase } from "firebase/database";
 
-- **Styling**: Bearbeite `src/index.css` oder `tailwind.config.js`
-- **Komponenten**: Alle Komponenten sind in `src/App.jsx` definiert
-- **Firebase-Pfade**: Ändere `appId` in `src/App.jsx` für verschiedene Umgebungen
+// TODO: Ersetzen Sie dies mit Ihrer Firebase-Konfiguration
+const firebaseConfig = {
+  apiKey: "AIza....",
+  authDomain: "your-project-id.firebaseapp.com",
+  databaseURL: "https://your-project-id.firebaseio.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
+```
+
+### 4. Anwendung starten
+
+Um den lokalen Entwicklungsserver zu starten:
+
+```bash
+npm run dev
+```
+
+Die Anwendung ist nun unter `http://localhost:5173` (oder einem anderen Port, falls dieser besetzt ist) verfügbar.
+
+### 5. Produktiv-Build erstellen
+
+Um die Anwendung für die Produktion zu kompilieren:
+
+```bash
+npm run build
+```
+
+Die fertigen Dateien werden im `dist`-Ordner abgelegt.
 
 ## Deployment
 
-### Vercel (Empfohlen)
-1. Verbinde dein GitHub-Repository mit Vercel
-2. Setze die Umgebungsvariablen in Vercel
-3. Deploy automatisch bei jedem Push
+Das Projekt ist für das Deployment mit Firebase Hosting vorkonfiguriert.
 
-### Netlify
-1. Verbinde dein Repository mit Netlify
-2. Build-Kommando: `npm run build`
-3. Publish-Directory: `dist`
-
-### Firebase Hosting
-1. Installiere Firebase CLI: `npm install -g firebase-tools`
-2. Login: `firebase login`
-3. Initialisiere: `firebase init hosting`
-4. Deploy: `firebase deploy`
-
-## Support
-
-Bei Fragen oder Problemen:
-1. Überprüfe die Firebase-Konfiguration
-2. Schaue in die Browser-Konsole für Fehlermeldungen
-3. Stelle sicher, dass alle Abhängigkeiten installiert sind
+1.  **Firebase CLI installieren** (falls noch nicht geschehen):
+    ```bash
+    npm install -g firebase-tools
+    ```
+2.  **Einloggen**:
+    ```bash
+    firebase login
+    ```
+3.  **Deployment durchführen**:
+    Stellen Sie sicher, dass Sie `npm run build` ausgeführt haben. Führen Sie dann den folgenden Befehl aus:
+    ```bash
+    firebase deploy --only hosting
+    ```
 
 ## Lizenz
 
-MIT License - siehe LICENSE-Datei für Details. 
+Dieses Projekt ist unter der MIT License lizenziert. Siehe die `LICENSE`-Datei für Details.

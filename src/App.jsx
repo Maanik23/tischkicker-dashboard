@@ -4,6 +4,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { db } from './firebaseConfig';
 import { ref, onValue, push, set } from "firebase/database";
 import Select from 'react-select';
+import Tournament from './components/Tournament';
+import { customSelectStyles } from './styles/selectStyles';
 
 // --- KONFIGURATION & HELFER ---
 const RANKS = [
@@ -13,15 +15,6 @@ const RANKS = [
 ];
 const getRankFromPoints = (points) => RANKS.slice().reverse().find(r => points >= r.minPoints) || RANKS[0];
 
-const customSelectStyles = {
-    control: (p) => ({...p, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '0.5rem', minHeight: '48px'}),
-    menu: (p) => ({...p, background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.2)'}),
-    option: (p, {isSelected, isFocused}) => ({...p, background: isSelected ? 'rgba(234,88,12,0.5)' : isFocused ? 'rgba(255,255,255,0.1)' : 'transparent', color: '#fff'}),
-    singleValue: (p) => ({...p, color: '#fff'}),
-    input: (p) => ({...p, color: '#fff'}),
-};
-
-const CHART_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#00C49F", "#FFBB28"];
 
 // --- HAUPTKOMPONENTE ---
 export default function App() {
@@ -36,9 +29,25 @@ export default function App() {
         setLoading(true);
         let pLoaded=false, mLoaded=false, tLoaded=false;
         const check = () => { if(pLoaded && mLoaded && tLoaded) setLoading(false); };
-        const pL = onValue(ref(db, 'players'), s => { setPlayers(Object.values(s.val()||{})); pLoaded=true; check(); });
-        const mL = onValue(ref(db, 'globalMatches'), s => { setMatches(Object.values(s.val()||{}).sort((a,b)=>a.createdAt-b.createdAt)); mLoaded=true; check(); });
-        const tL = onValue(ref(db, 'tournaments'), s => { setTournaments(Object.values(s.val()||{}).sort((a,b)=>b.createdAt-a.createdAt)); tLoaded=true; check(); });
+
+        const pRef = ref(db, 'players');
+        const mRef = ref(db, 'globalMatches');
+        const tRef = ref(db, 'tournaments');
+
+        const pL = onValue(pRef, s => { setPlayers(Object.values(s.val()||{})); pLoaded=true; check(); });
+        const mL = onValue(mRef, s => { setMatches(Object.values(s.val()||{}).sort((a,b)=>a.createdAt-b.createdAt)); mLoaded=true; check(); });
+        const tL = onValue(tRef, s => { 
+            const tourneyData = s.val() || {};
+            const tourneyList = Object.entries(tourneyData).map(([id, tourney]) => ({
+                id,
+                ...tourney,
+                participants: tourney.participants || [],
+                games: tourney.games ? Object.values(tourney.games) : [],
+            }));
+            setTournaments(tourneyList.sort((a,b) => b.createdAt - a.createdAt)); 
+            tLoaded=true; check(); 
+        });
+
         return () => { pL(); mL(); tL(); };
     }, []);
     
@@ -46,9 +55,9 @@ export default function App() {
         const stats = new Map(players.map(p => [p.id, { ...p, points: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0, played: 0 }]));
         matches.forEach(m => {
             const p1 = stats.get(m.player1Id); const p2 = stats.get(m.player2Id); if (!p1 || !p2) return;
-            p1.played++; p2.played++; p1.gf += m.player1Score; p1.ga += m.player2Score; p2.gf += m.player2Score; p2.ga += m.p1Score;
+            p1.played++; p2.played++; p1.gf += m.player1Score; p1.ga += m.player2Score; p2.gf += m.player2Score; p2.ga += m.player1Score;
             if (m.player1Score > m.player2Score) { p1.points += 3; p1.wins++; p2.losses++; }
-            else if (m.p2Score > m.p1Score) { p2.points += 3; p2.wins++; p1.losses++; }
+            else if (m.player2Score > m.player1Score) { p2.points += 3; p2.wins++; p1.losses++; }
             else { p1.points++; p2.points++; p1.draws++; p2.draws++; }
         });
         return [...stats.values()].sort((a,b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
@@ -67,13 +76,13 @@ export default function App() {
         }
     };
     
-    const renderTournamentView = () => <div>Turnier-Modus in Entwicklung.</div>;
+    const renderTournamentView = () => <Tournament allPlayers={players} tournaments={tournaments} setTournaments={setTournaments} />;
     
     return (
         <div className="bg-gradient-to-br from-gray-900 to-black text-white font-sans flex min-h-screen">
             <Sidebar mode={mode} setMode={setMode} view={view} setView={setView} />
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                <Header title={getPageTitle(view)} />
+                <Header title={getPageTitle(view, mode)} />
                 <div className="mt-6">
                     {mode === 'global' ? renderGlobalView() : renderTournamentView()}
                 </div>
@@ -83,7 +92,8 @@ export default function App() {
 }
 
 // --- HELPER & UI KOMPONENTEN ---
-const getPageTitle = (page) => {
+const getPageTitle = (page, mode) => {
+    if (mode === 'tournament') return "Turnier Modus";
     const titles = { dashboard: 'Dashboard', rangliste: 'Globale Rangliste', spieler: 'Spieler verwalten', neuesSpiel: 'Neues Spiel eintragen' };
     return titles[page] || 'Kicker Arena';
 };
@@ -91,7 +101,7 @@ const getPageTitle = (page) => {
 const Sidebar = ({ mode, setMode, view, setView }) => {
     const menuItems = {
         global: [ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'rangliste', label: 'Rangliste', icon: Trophy }, { id: 'spieler', label: 'Spieler', icon: Users }, { id: 'neuesSpiel', label: 'Neues Spiel', icon: PlusCircle } ],
-        tournament: []
+        tournament: [] // Navigation handled within Tournament component
     };
     return (
         <aside className="w-64 bg-black/30 p-6 backdrop-blur-sm border-r border-white/10">
@@ -101,7 +111,7 @@ const Sidebar = ({ mode, setMode, view, setView }) => {
                     <SidebarButton label="Gesamt" active={mode === 'global'} onClick={() => { setMode('global'); setView('dashboard'); }}/>
                     <SidebarButton label="Turnier" active={mode === 'tournament'} onClick={() => { setMode('tournament'); setView('tournament-list'); }}/>
                 </div>
-                <div><h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Navigation</h3>{menuItems[mode].map(item => <SubSidebarButton key={item.id} {...item} active={view === item.id} onClick={() => setView(item.id)}/>)}</div>
+                {menuItems[mode].length > 0 && <div><h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Navigation</h3>{menuItems[mode].map(item => <SubSidebarButton key={item.id} {...item} active={view === item.id} onClick={() => setView(item.id)}/>)}</div>}
             </nav>
         </aside>
     );
@@ -111,6 +121,7 @@ const SidebarButton = ({ label, active, onClick }) => <button onClick={onClick} 
 const SubSidebarButton = ({ label, icon: Icon, active, onClick }) => <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${active ? 'bg-white/20' : 'hover:bg-white/10'}`}><Icon size={20}/>{label}</button>;
 const Header = ({ title }) => <header className="border-b border-white/10 pb-4"><h1 className="text-4xl font-bold text-white">{title}</h1></header>;
 const StatCard = ({ title, value, icon: Icon }) => <div className="bg-black/40 p-6 rounded-lg border border-white/10 shadow-lg"><div className="flex justify-between items-center"><p className="text-gray-400">{title}</p><Icon size={24} className="text-orange-400"/></div><p className="text-3xl font-bold mt-2">{value}</p></div>;
+const CHART_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#00C49F", "#FFBB28"];
 
 const Dashboard = ({ stats, leaderboardData, matches, players }) => {
     const top5Players = leaderboardData.slice(0, 5);
