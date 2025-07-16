@@ -10,11 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "firebase": "^10.7.1",
+    "firebase": "^10.14.1",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "recharts": "^2.8.0"
+    "react-select": "^5.10.2",
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
