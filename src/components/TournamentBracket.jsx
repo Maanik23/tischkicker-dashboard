@@ -4,68 +4,110 @@ import { Trophy, Swords, Crown } from 'lucide-react';
 
 const PlayoffMatch = ({ match, matchId, tournamentId, onUpdate, disabled }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [s1, setS1] = useState(match.score1 !== null ? match.score1 : '');
-    const [s2, setS2] = useState(match.score2 !== null ? match.score2 : '');
+    const [gameScores, setGameScores] = useState(
+        match.games ? match.games.map(game => ({
+            score1: game.score1 !== null ? game.score1 : '',
+            score2: game.score2 !== null ? game.score2 : ''
+        })) : [
+            { score1: '', score2: '' },
+            { score1: '', score2: '' },
+            { score1: '', score2: '' }
+        ]
+    );
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSave = () => {
-        if (s1 === '' || s2 === '') return;
-        
-        const score1 = parseInt(s1);
-        const score2 = parseInt(s2);
-        
-        // Validate that one player has reached 10 points
-        if (score1 < 10 && score2 < 10) {
-            alert('Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.');
+        // Validate that all games have scores
+        const hasIncompleteScores = gameScores.some(game => game.score1 === '' || game.score2 === '');
+        if (hasIncompleteScores) {
+            alert('Bitte füllen Sie alle Spiele aus.');
             return;
         }
         
-        // Validate that the winner has exactly 10 points
-        if (score1 > 10 && score2 > 10) {
-            alert('Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.');
-            return;
+        // Validate each game
+        for (let i = 0; i < gameScores.length; i++) {
+            const score1 = parseInt(gameScores[i].score1);
+            const score2 = parseInt(gameScores[i].score2);
+            
+            // Validate that one player has reached 10 points
+            if (score1 < 10 && score2 < 10) {
+                alert(`Spiel ${i + 1}: Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.`);
+                return;
+            }
+            
+            // Validate that the winner has exactly 10 points
+            if (score1 > 10 && score2 > 10) {
+                alert(`Spiel ${i + 1}: Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.`);
+                return;
+            }
         }
         
         setIsLoading(true);
         const db = getDatabase();
         const matchRef = ref(db, `tournaments/${tournamentId}/playoffs/${matchId}`);
-        // Ensure the playoff match object exists before updating
+        
+        // Convert scores to numbers
+        const games = gameScores.map(game => ({
+            score1: parseInt(game.score1),
+            score2: parseInt(game.score2)
+        }));
+        
         update(matchRef, {
-            ...match, // fallback: ensure p1, p2, name are present
-            score1: score1,
-            score2: score2
+            ...match,
+            games: games
         }).then(() => {
             setIsEditing(false);
             setIsLoading(false);
-            onUpdate();
+            // Add a small delay to ensure Firebase update is complete
+            setTimeout(() => {
+                onUpdate();
+            }, 500);
         }).catch((error) => {
             console.error('Error saving playoff score:', error, { matchId, match, tournamentId });
             alert('Fehler beim Speichern des Ergebnisses. Bitte versuchen Sie es erneut.\n' + error.message);
             setIsLoading(false);
         });
     };
-    
-    // Determine winner only if scores are not null
-    const winner = match.score1 !== null && match.score2 !== null 
-        ? (match.score1 > match.score2 ? match.p1 : match.p2) 
-        : null;
 
-    // Check if match is ready to be played (has both players)
+    // Determine winner based on best-of-three
+    const determineWinner = () => {
+        if (!match.games || !Array.isArray(match.games) || match.games.length === 0) return null;
+        
+        let p1Wins = 0;
+        let p2Wins = 0;
+        
+        match.games.forEach(game => {
+            if (game && game.score1 !== null && game.score2 !== null) {
+                if (game.score1 > game.score2) {
+                    p1Wins++;
+                } else if (game.score2 > game.score1) {
+                    p2Wins++;
+                }
+            }
+        });
+        
+        if (p1Wins > p2Wins) return match.p1;
+        if (p2Wins > p1Wins) return match.p2;
+        return null; // No winner yet or tie
+    };
+
+    const winner = determineWinner();
     const isReady = match.p1 && match.p2;
-    const isCompleted = match.score1 !== null && match.score2 !== null;
+    const isCompleted = match.games && Array.isArray(match.games) && match.games.every(game => game && game.score1 !== null && game.score2 !== null);
+    const gamesPlayed = match.games && Array.isArray(match.games) ? match.games.filter(game => game && game.score1 !== null && game.score2 !== null).length : 0;
 
     return (
         <div className="relative">
             {/* Match Card */}
-            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-700/50 hover:border-red-500/50 transition-all duration-300 min-w-[280px]">
+            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-700/50 hover:border-red-500/50 transition-all duration-300 min-w-[320px]">
                 {/* Match Header */}
                 <div className="flex items-center justify-center mb-3">
                     <Swords className="w-6 h-6 text-red-400 mr-2" />
                     <h4 className="font-bold text-red-400 text-lg uppercase tracking-wider">{match.name}</h4>
                 </div>
                 
-                {/* Players and Scores */}
-                <div className="space-y-2">
+                {/* Players */}
+                <div className="space-y-2 mb-4">
                     <div className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
                         winner && winner.id === match.p1?.id 
                             ? 'bg-gradient-to-r from-green-600/20 to-green-800/20 border border-green-500' 
@@ -77,20 +119,8 @@ const PlayoffMatch = ({ match, matchId, tournamentId, onUpdate, disabled }) => {
                             </div>
                             <span className="font-semibold text-white">{match.p1?.name || 'TBD'}</span>
                         </div>
-                        {isEditing ? (
-                            <input 
-                                type="number" 
-                                value={s1} 
-                                onChange={e => setS1(e.target.value)} 
-                                className="w-20 h-10 text-2xl text-center bg-gray-800 rounded border border-gray-600 text-white font-bold"
-                                min="0"
-                                max="10"
-                                placeholder="0-10"
-                            />
-                        ) : (
-                            <span className="font-bold text-2xl text-white">
-                                {match.score1 !== null ? match.score1 : '--'}
-                            </span>
+                        {winner && winner.id === match.p1?.id && (
+                            <Crown className="w-5 h-5 text-yellow-400" />
                         )}
                     </div>
                     
@@ -107,21 +137,71 @@ const PlayoffMatch = ({ match, matchId, tournamentId, onUpdate, disabled }) => {
                             </div>
                             <span className="font-semibold text-white">{match.p2?.name || 'TBD'}</span>
                         </div>
-                        {isEditing ? (
-                            <input 
-                                type="number" 
-                                value={s2} 
-                                onChange={e => setS2(e.target.value)} 
-                                className="w-20 h-10 text-2xl text-center bg-gray-800 rounded border border-gray-600 text-white font-bold"
-                                min="0"
-                                max="10"
-                                placeholder="0-10"
-                            />
-                        ) : (
-                            <span className="font-bold text-2xl text-white">
-                                {match.score2 !== null ? match.score2 : '--'}
-                            </span>
+                        {winner && winner.id === match.p2?.id && (
+                            <Crown className="w-5 h-5 text-yellow-400" />
                         )}
+                    </div>
+                </div>
+
+                {/* Best of Three Games */}
+                <div className="mb-4">
+                    <h5 className="text-sm font-semibold text-gray-300 mb-2 text-center">Best of Three</h5>
+                    <div className="space-y-2">
+                        {[0, 1, 2].map((gameIndex) => (
+                            <div key={gameIndex} className="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                <span className="text-xs text-gray-400">Spiel {gameIndex + 1}</span>
+                                {isEditing ? (
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            value={gameScores[gameIndex].score1} 
+                                            onChange={e => {
+                                                const newScores = [...gameScores];
+                                                newScores[gameIndex].score1 = e.target.value;
+                                                setGameScores(newScores);
+                                            }} 
+                                            className="w-12 h-8 text-sm text-center bg-gray-700 rounded border border-gray-600 text-white font-bold"
+                                            min="0"
+                                            max="10"
+                                            placeholder="0-10"
+                                        />
+                                        <span className="text-xs text-gray-400">-</span>
+                                        <input 
+                                            type="number" 
+                                            value={gameScores[gameIndex].score2} 
+                                            onChange={e => {
+                                                const newScores = [...gameScores];
+                                                newScores[gameIndex].score2 = e.target.value;
+                                                setGameScores(newScores);
+                                            }} 
+                                            className="w-12 h-8 text-sm text-center bg-gray-700 rounded border border-gray-600 text-white font-bold"
+                                            min="0"
+                                            max="10"
+                                            placeholder="0-10"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-white">
+                                            {match.games && match.games[gameIndex] && match.games[gameIndex].score1 !== null 
+                                                ? match.games[gameIndex].score1 : '--'}
+                                        </span>
+                                        <span className="text-xs text-gray-400">-</span>
+                                        <span className="text-sm font-bold text-white">
+                                            {match.games && match.games[gameIndex] && match.games[gameIndex].score2 !== null 
+                                                ? match.games[gameIndex].score2 : '--'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    
+                    {/* Progress indicator */}
+                    <div className="mt-2 text-center">
+                        <span className="text-xs text-gray-400">
+                            {gamesPlayed}/3 Spiele gespielt
+                        </span>
                     </div>
                 </div>
                 
@@ -151,7 +231,7 @@ const PlayoffMatch = ({ match, matchId, tournamentId, onUpdate, disabled }) => {
                                 disabled={isLoading}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-semibold transition-colors"
                             >
-                                {isCompleted ? 'Bearbeiten' : 'Ergebnis eintragen'}
+                                {isCompleted ? 'Bearbeiten' : 'Ergebnisse eintragen'}
                             </button>
                         )}
                     </div>
@@ -184,9 +264,7 @@ const TournamentBracket = ({ tournament, onUpdate }) => {
         );
     }
 
-    const finalWinner = status === 'finished' && playoffs.final.score1 !== null && playoffs.final.score2 !== null
-        ? (playoffs.final.score1 > playoffs.final.score2 ? playoffs.final.p1 : playoffs.final.p2)
-        : null;
+    const finalWinner = status === 'finished' && playoffs.final.winner ? playoffs.final.winner : null;
 
     // Show tournament status
     const getStatusMessage = () => {
@@ -223,10 +301,12 @@ const TournamentBracket = ({ tournament, onUpdate }) => {
                     <div>
                         <p className="mb-2"><strong className="text-red-400">1. Qualifier 1:</strong> Top 2 Spieler kämpfen um den direkten Finaleinzug</p>
                         <p className="mb-2"><strong className="text-red-400">2. Eliminator:</strong> Platz 3 & 4 spielen um den letzten Hoffnungsschuss</p>
+                        <p className="mb-2"><strong className="text-blue-400">Best of Three:</strong> Alle Matches werden im Best-of-Three Format gespielt</p>
                     </div>
                     <div>
                         <p className="mb-2"><strong className="text-green-400">3. Qualifier 2:</strong> Verlierer Qualifier 1 vs Sieger Eliminator</p>
                         <p className="mb-2"><strong className="text-yellow-400">4. Finale:</strong> Sieger Qualifier 1 vs Sieger Qualifier 2</p>
+                        <p className="mb-2"><strong className="text-purple-400">Gewinner:</strong> Der Finalist wird Turniersieger und erhält einen Turniersieg</p>
                     </div>
                 </div>
             </div>

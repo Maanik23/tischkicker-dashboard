@@ -68,7 +68,39 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
             if (snapshot.exists()) {
                 const tourneyData = snapshot.val();
                 const gamesArray = tourneyData.games ? Object.values(tourneyData.games).sort((a,b) => a.createdAt - b.createdAt) : [];
-                const updatedData = { id: snapshot.key, ...tourneyData, participants: tourneyData.participants || [], games: gamesArray };
+                
+                // Ensure playoffs structure is properly initialized
+                let playoffs = tourneyData.playoffs;
+                if (playoffs) {
+                    // Ensure each playoff match has the proper structure
+                    ['qualifier1', 'eliminator', 'qualifier2', 'final'].forEach(matchKey => {
+                        if (playoffs[matchKey]) {
+                            if (!playoffs[matchKey].games || !Array.isArray(playoffs[matchKey].games)) {
+                                playoffs[matchKey].games = [
+                                    { score1: null, score2: null },
+                                    { score1: null, score2: null },
+                                    { score1: null, score2: null }
+                                ];
+                            }
+                            if (playoffs[matchKey].completed === undefined) {
+                                playoffs[matchKey].completed = false;
+                            }
+                            if (playoffs[matchKey].winner === undefined) {
+                                playoffs[matchKey].winner = null;
+                            }
+                        }
+                    });
+                }
+                
+                const updatedData = { 
+                    id: snapshot.key, 
+                    ...tourneyData, 
+                    participants: tourneyData.participants || [], 
+                    games: gamesArray,
+                    playoffs: playoffs
+                };
+                
+                console.log('Refreshed tournament data:', updatedData);
                 setTournaments(prev => prev.map(t => t.id === selectedTournamentId ? updatedData : t));
             } else {
                 setView('list');
@@ -107,10 +139,54 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
         }
         
         const playoffs = {
-            qualifier1: { name: "Qualifier 1", p1: top4[0], p2: top4[1], score1: null, score2: null },
-            eliminator: { name: "Eliminator", p1: top4[2], p2: top4[3], score1: null, score2: null },
-            qualifier2: { name: "Qualifier 2", p1: null, p2: null, score1: null, score2: null },
-            final: { name: "Finale", p1: null, p2: null, score1: null, score2: null }
+            qualifier1: { 
+                name: "Qualifier 1", 
+                p1: top4[0], 
+                p2: top4[1], 
+                games: [
+                    { score1: null, score2: null },
+                    { score1: null, score2: null },
+                    { score1: null, score2: null }
+                ],
+                winner: null,
+                completed: false
+            },
+            eliminator: { 
+                name: "Eliminator", 
+                p1: top4[2], 
+                p2: top4[3], 
+                games: [
+                    { score1: null, score2: null },
+                    { score1: null, score2: null },
+                    { score1: null, score2: null }
+                ],
+                winner: null,
+                completed: false
+            },
+            qualifier2: { 
+                name: "Qualifier 2", 
+                p1: null, 
+                p2: null, 
+                games: [
+                    { score1: null, score2: null },
+                    { score1: null, score2: null },
+                    { score1: null, score2: null }
+                ],
+                winner: null,
+                completed: false
+            },
+            final: { 
+                name: "Finale", 
+                p1: null, 
+                p2: null, 
+                games: [
+                    { score1: null, score2: null },
+                    { score1: null, score2: null },
+                    { score1: null, score2: null }
+                ],
+                winner: null,
+                completed: false
+            }
         };
 
         update(ref(db, `tournaments/${selectedTournament.id}`), { playoffs: playoffs, status: 'playoffs' })
@@ -123,62 +199,130 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
             });
     };
 
+    // Helper function to determine best-of-three winner
+    const determineBestOfThreeWinner = (games) => {
+        if (!games || !Array.isArray(games) || games.length === 0) {
+            return null;
+        }
+        
+        let p1Wins = 0;
+        let p2Wins = 0;
+        
+        games.forEach(game => {
+            if (game && game.score1 !== null && game.score2 !== null) {
+                if (game.score1 > game.score2) {
+                    p1Wins++;
+                } else if (game.score2 > game.score1) {
+                    p2Wins++;
+                }
+            }
+        });
+        
+        if (p1Wins > p2Wins) return 'p1';
+        if (p2Wins > p1Wins) return 'p2';
+        return null; // No winner yet or tie
+    };
+
+    // Helper function to check if all games in a match are completed
+    const isMatchCompleted = (games) => {
+        if (!games || !Array.isArray(games) || games.length === 0) {
+            return false;
+        }
+        return games.every(game => game && game.score1 !== null && game.score2 !== null);
+    };
+
     const advancePlayoffWinners = () => {
-        if (!selectedTournament || !selectedTournament.playoffs) return;
+        if (!selectedTournament || !selectedTournament.playoffs) {
+            console.error('No tournament or playoffs data available');
+            return;
+        }
         
         const { playoffs } = selectedTournament;
         const updates = {};
 
         // Ensure playoff structure exists
         if (!playoffs.qualifier1 || !playoffs.eliminator || !playoffs.qualifier2 || !playoffs.final) {
-            console.error('Playoff structure is incomplete');
+            console.error('Playoff structure is incomplete', playoffs);
             return;
         }
 
-        // Check Qualifier 1 - only advance if both players exist and scores are valid
-        if (playoffs.qualifier1.score1 !== null && playoffs.qualifier1.score2 !== null && 
-            playoffs.qualifier1.p1 && playoffs.qualifier1.p2 && !playoffs.final.p1) {
-            const winner = playoffs.qualifier1.score1 > playoffs.qualifier1.score2 ? playoffs.qualifier1.p1 : playoffs.qualifier1.p2;
-            const loser = playoffs.qualifier1.score1 > playoffs.qualifier1.score2 ? playoffs.qualifier1.p2 : playoffs.qualifier1.p1;
-            
-            // Only update if both winner and loser are valid
-            if (winner && loser) {
-                updates['playoffs/final/p1'] = winner;
-                updates['playoffs/qualifier2/p1'] = loser;
-            }
-        }
+        console.log('Advancing playoff winners...', {
+            qualifier1: playoffs.qualifier1,
+            eliminator: playoffs.eliminator,
+            qualifier2: playoffs.qualifier2,
+            final: playoffs.final
+        });
 
-        // Check Eliminator - only advance if both players exist and scores are valid
-        if (playoffs.eliminator.score1 !== null && playoffs.eliminator.score2 !== null && 
-            playoffs.eliminator.p1 && playoffs.eliminator.p2 && !playoffs.qualifier2.p2) {
-            const winner = playoffs.eliminator.score1 > playoffs.eliminator.score2 ? playoffs.eliminator.p1 : playoffs.eliminator.p2;
-            
-            // Only update if winner is valid
+        // Check Qualifier 1 - winner goes to final, loser goes to qualifier 2
+        console.log('Checking Qualifier 1:', {
+            games: playoffs.qualifier1.games,
+            isCompleted: isMatchCompleted(playoffs.qualifier1.games),
+            alreadyCompleted: playoffs.qualifier1.completed
+        });
+        
+        if (isMatchCompleted(playoffs.qualifier1.games) && !playoffs.qualifier1.completed) {
+            const winner = determineBestOfThreeWinner(playoffs.qualifier1.games);
+            console.log('Qualifier 1 winner:', winner);
             if (winner) {
-                updates['playoffs/qualifier2/p2'] = winner;
+                const winnerPlayer = winner === 'p1' ? playoffs.qualifier1.p1 : playoffs.qualifier1.p2;
+                const loserPlayer = winner === 'p1' ? playoffs.qualifier1.p2 : playoffs.qualifier1.p1;
+                
+                console.log('Qualifier 1 advancing:', { winnerPlayer, loserPlayer });
+                
+                updates['playoffs/qualifier1/winner'] = winnerPlayer;
+                updates['playoffs/qualifier1/completed'] = true;
+                updates['playoffs/final/p1'] = winnerPlayer;
+                updates['playoffs/qualifier2/p1'] = loserPlayer;
             }
         }
 
-        // Check Qualifier 2 - only advance if both players exist and scores are valid
-        if (playoffs.qualifier2.score1 !== null && playoffs.qualifier2.score2 !== null && 
-            playoffs.qualifier2.p1 && playoffs.qualifier2.p2 && !playoffs.final.p2) {
-            const winner = playoffs.qualifier2.score1 > playoffs.qualifier2.score2 ? playoffs.qualifier2.p1 : playoffs.qualifier2.p2;
-            
-            // Only update if winner is valid
+        // Check Eliminator - winner goes to qualifier 2, loser is eliminated
+        if (isMatchCompleted(playoffs.eliminator.games) && !playoffs.eliminator.completed) {
+            const winner = determineBestOfThreeWinner(playoffs.eliminator.games);
             if (winner) {
-                updates['playoffs/final/p2'] = winner;
+                const winnerPlayer = winner === 'p1' ? playoffs.eliminator.p1 : playoffs.eliminator.p2;
+                
+                updates['playoffs/eliminator/winner'] = winnerPlayer;
+                updates['playoffs/eliminator/completed'] = true;
+                updates['playoffs/qualifier2/p2'] = winnerPlayer;
             }
         }
 
-        // Check Final for tournament finish - only if both players exist and scores are valid
-        if (playoffs.final.score1 !== null && playoffs.final.score2 !== null && 
+        // Check Qualifier 2 - winner goes to final
+        if (isMatchCompleted(playoffs.qualifier2.games) && !playoffs.qualifier2.completed && 
+            playoffs.qualifier2.p1 && playoffs.qualifier2.p2) {
+            const winner = determineBestOfThreeWinner(playoffs.qualifier2.games);
+            if (winner) {
+                const winnerPlayer = winner === 'p1' ? playoffs.qualifier2.p1 : playoffs.qualifier2.p2;
+                
+                updates['playoffs/qualifier2/winner'] = winnerPlayer;
+                updates['playoffs/qualifier2/completed'] = true;
+                updates['playoffs/final/p2'] = winnerPlayer;
+            }
+        }
+
+        // Check Final for tournament finish
+        if (isMatchCompleted(playoffs.final.games) && !playoffs.final.completed && 
             playoffs.final.p1 && playoffs.final.p2) {
-            updates['status'] = 'finished';
+            const winner = determineBestOfThreeWinner(playoffs.final.games);
+            if (winner) {
+                const winnerPlayer = winner === 'p1' ? playoffs.final.p1 : playoffs.final.p2;
+                
+                updates['playoffs/final/winner'] = winnerPlayer;
+                updates['playoffs/final/completed'] = true;
+                updates['status'] = 'finished';
+                updates['winner'] = winnerPlayer;
+                updates['finishedAt'] = Date.now();
+            }
         }
         
+        console.log('Updates to be applied:', updates);
+        
         if(Object.keys(updates).length > 0) {
+            console.log('Applying updates to Firebase...');
             update(ref(db, `tournaments/${selectedTournament.id}`), updates)
                 .then(() => {
+                    console.log('Updates applied successfully');
                     // Check if tournament is finished and show trophy popup
                     if (updates['status'] === 'finished') {
                         // Get the updated tournament data to ensure we have the correct final scores
@@ -187,11 +331,8 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                             if (snapshot.exists()) {
                                 const updatedTournament = snapshot.val();
                                 const finalMatch = updatedTournament.playoffs.final;
-                                if (finalMatch && finalMatch.score1 !== null && finalMatch.score2 !== null) {
-                                    const finalWinner = finalMatch.score1 > finalMatch.score2 ? finalMatch.p1 : finalMatch.p2;
-                                    if (finalWinner) {
-                                        showTrophyPopup(finalWinner);
-                                    }
+                                if (finalMatch && finalMatch.winner) {
+                                    showTrophyPopup(finalMatch.winner, updatedTournament);
                                 }
                             }
                         }, { onlyOnce: true });
@@ -201,10 +342,20 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                     console.error('Error advancing playoff winners:', error);
                     alert('Fehler beim Aktualisieren der Playoffs. Bitte versuchen Sie es erneut.');
                 });
+        } else {
+            console.log('No updates to apply');
         }
     };
 
-    const showTrophyPopup = (winner) => {
+    const showTrophyPopup = (winner, tournament) => {
+        // Update player's tournament wins count
+        const playerRef = ref(db, `players/${winner.id}`);
+        update(playerRef, {
+            tournamentWins: (winner.tournamentWins || 0) + 1
+        }).catch(error => {
+            console.error('Error updating player tournament wins:', error);
+        });
+
         // Create confetti effect
         const createConfetti = () => {
             const colors = ['#ff0000', '#ff6b6b', '#ffd93d', '#6bcf7f', '#4d9de0', '#e15554'];

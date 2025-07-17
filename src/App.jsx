@@ -9,9 +9,12 @@ import { customSelectStyles } from './styles/selectStyles';
 
 // --- KONFIGURATION & HELFER ---
 const RANKS = [
-    { name: "Bronze", minPoints: 0, icon: "🥉" }, { name: "Silber", minPoints: 20, icon: "🥈" },
-    { name: "Gold", minPoints: 50, icon: "🥇" }, { name: "Platin", minPoints: 100, icon: "🛡️" },
-    { name: "Meister", minPoints: 150, icon: "👑" },
+    { name: "Bronze", minPoints: 0, icon: "🥉", color: "text-amber-600" }, 
+    { name: "Silber", minPoints: 20, icon: "🥈", color: "text-gray-300" },
+    { name: "Gold", minPoints: 50, icon: "🥇", color: "text-yellow-400" }, 
+    { name: "Platin", minPoints: 100, icon: "💎", color: "text-cyan-400" },
+    { name: "Diamant", minPoints: 150, icon: "💠", color: "text-blue-400" },
+    { name: "Meister", minPoints: 200, icon: "👑", color: "text-purple-400" },
 ];
 const getRankFromPoints = (points) => RANKS.slice().reverse().find(r => points >= r.minPoints) || RANKS[0];
 
@@ -38,12 +41,38 @@ export default function App() {
         const mL = onValue(mRef, s => { setMatches(Object.values(s.val()||{}).sort((a,b)=>a.createdAt-b.createdAt)); mLoaded=true; check(); });
         const tL = onValue(tRef, s => { 
             const tourneyData = s.val() || {};
-            const tourneyList = Object.entries(tourneyData).map(([id, tourney]) => ({
-                id,
-                ...tourney,
-                participants: tourney.participants || [],
-                games: tourney.games ? Object.values(tourney.games).sort((a, b) => (a.player1.name+a.player2.name).localeCompare(b.player1.name+b.player2.name)) : [],
-            }));
+            const tourneyList = Object.entries(tourneyData).map(([id, tourney]) => {
+                // Ensure playoffs structure is properly initialized
+                let playoffs = tourney.playoffs;
+                if (playoffs) {
+                    // Ensure each playoff match has the proper structure
+                    ['qualifier1', 'eliminator', 'qualifier2', 'final'].forEach(matchKey => {
+                        if (playoffs[matchKey]) {
+                            if (!playoffs[matchKey].games || !Array.isArray(playoffs[matchKey].games)) {
+                                playoffs[matchKey].games = [
+                                    { score1: null, score2: null },
+                                    { score1: null, score2: null },
+                                    { score1: null, score2: null }
+                                ];
+                            }
+                            if (playoffs[matchKey].completed === undefined) {
+                                playoffs[matchKey].completed = false;
+                            }
+                            if (playoffs[matchKey].winner === undefined) {
+                                playoffs[matchKey].winner = null;
+                            }
+                        }
+                    });
+                }
+                
+                return {
+                    id,
+                    ...tourney,
+                    participants: tourney.participants || [],
+                    games: tourney.games ? Object.values(tourney.games).sort((a, b) => (a.player1.name+a.player2.name).localeCompare(b.player1.name+b.player2.name)) : [],
+                    playoffs: playoffs
+                };
+            });
             setTournaments(tourneyList.sort((a,b) => b.createdAt - a.createdAt)); 
             tLoaded=true; check(); 
         });
@@ -52,7 +81,7 @@ export default function App() {
     }, []);
     
     const leaderboardData = useMemo(() => {
-        const stats = new Map(players.map(p => [p.id, { ...p, points: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0, played: 0 }]));
+        const stats = new Map(players.map(p => [p.id, { ...p, points: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0, played: 0, tournamentWins: p.tournamentWins || 0 }]));
         matches.forEach(m => {
             const p1 = stats.get(m.player1Id); const p2 = stats.get(m.player2Id); if (!p1 || !p2) return;
             p1.played++; p2.played++; p1.gf += m.player1Score; p1.ga += m.player2Score; p2.gf += m.player2Score; p2.ga += m.player1Score;
@@ -60,7 +89,7 @@ export default function App() {
             else if (m.player2Score > m.player1Score) { p2.points += 3; p2.wins++; p1.losses++; }
             else { p1.points++; p2.points++; p1.draws++; p2.draws++; }
         });
-        return [...stats.values()].sort((a,b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
+        return [...stats.values()].sort((a,b) => b.points - a.points || b.tournamentWins - a.tournamentWins || (b.gf - b.ga) - (a.gf - a.ga));
     }, [players, matches]);
     
     const handleAddPlayer = (name) => { 
@@ -86,7 +115,7 @@ export default function App() {
             case 'rangliste': return <Rangliste data={leaderboardData} />;
             case 'spieler': return <Spieler players={players} onAddPlayer={handleAddPlayer} />;
             case 'neuesSpiel': return <NeuesSpiel players={players} onAddMatch={handleAddMatch} />;
-            case 'dashboard': default: return <Dashboard stats={{totalPlayers: players.length, totalMatches: matches.length, topPlayer: leaderboardData[0]}} leaderboardData={leaderboardData} matches={matches} players={players}/>;
+            case 'dashboard': default: return <Dashboard stats={{totalPlayers: players.length, totalMatches: matches.length, topPlayer: leaderboardData[0]}} leaderboardData={leaderboardData} matches={matches} players={players} tournaments={tournaments}/>;
         }
     };
     
@@ -170,7 +199,7 @@ const StatCard = ({ title, value, icon: Icon }) => (
 );
 const CHART_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#00C49F", "#FFBB28"];
 
-const Dashboard = ({ stats, leaderboardData, matches, players }) => {
+const Dashboard = ({ stats, leaderboardData, matches, players, tournaments }) => {
     const top5Players = leaderboardData.slice(0, 5);
     const recentMatches = matches.slice(-5).reverse();
     const playerMap = new Map(players.map(p => [p.id, p.name]));
@@ -201,6 +230,21 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
     const winLossData = useMemo(() => {
         return leaderboardData.map(p => ({ name: p.name, Siege: p.wins, Niederlagen: p.losses }));
     }, [leaderboardData]);
+
+    const tournamentData = useMemo(() => {
+        const finishedTournaments = tournaments.filter(t => t.status === 'finished' && t.winner);
+        const tournamentWinners = {};
+        
+        finishedTournaments.forEach(tournament => {
+            const winnerName = tournament.winner.name;
+            tournamentWinners[winnerName] = (tournamentWinners[winnerName] || 0) + 1;
+        });
+        
+        return Object.entries(tournamentWinners)
+            .map(([name, wins]) => ({ name, Turniersiege: wins }))
+            .sort((a, b) => b.Turniersiege - a.Turniersiege)
+            .slice(0, 8); // Top 8 tournament winners
+    }, [tournaments]);
 
     return (
         <div className="space-y-8">
@@ -264,6 +308,31 @@ const Dashboard = ({ stats, leaderboardData, matches, players }) => {
                     </div>
                 </div>
             </div>
+            
+            {/* Tournament Results Visualization */}
+            <div className="gradient-card p-6 rounded-lg hover:gradient-card-hover transition-all duration-300">
+                <h2 className="text-2xl font-bold mb-4 text-red-400">🏆 Turniersiege</h2>
+                {tournamentData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={tournamentData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)"/>
+                            <XAxis dataKey="name" stroke="#9CA3AF"/>
+                            <YAxis stroke="#9CA3AF"/>
+                            <Tooltip contentStyle={{backgroundColor: '#1F2937', border: '1px solid #374151'}} wrapperClassName="rounded-lg"/>
+                            <Legend />
+                            <Bar dataKey="Turniersiege" fill="#fbbf24" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="text-center text-gray-400">
+                            <Trophy className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                            <p>Noch keine Turniere abgeschlossen</p>
+                            <p className="text-sm">Wechseln Sie in den Turniermodus, um ein Turnier zu erstellen</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -276,24 +345,38 @@ const Rangliste = ({ data }) => (
                     <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Rang</th>
                     <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Spieler</th>
                     <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Punkte</th>
+                    <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Turniere</th>
                     <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">Spiele</th>
                     <th className="p-4 text-left text-lg font-bold text-red-400 uppercase">S/U/N</th>
                 </tr>
             </thead> 
             <tbody>
-                {data.map((p, i) => (
-                    <tr key={p.id} className="hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors">
-                        <td className="p-4 font-bold text-xl">{i + 1}</td>
-                        <td className="p-4 font-semibold text-lg flex items-center gap-3">
-                            <span>{getRankFromPoints(p.points).icon}</span>{p.name}
-                        </td>
-                        <td className="p-4 font-bold text-red-400 text-lg">{p.points}</td>
-                        <td className="p-4 text-lg">{p.played}</td>
-                        <td className="p-4 text-lg">
-                            <span className="text-green-400">{p.wins}</span>/<span className="text-yellow-400">{p.draws}</span>/<span className="text-red-400">{p.losses}</span>
-                        </td>
-                    </tr>
-                ))}
+                {data.map((p, i) => {
+                    const rank = getRankFromPoints(p.points);
+                    return (
+                        <tr key={p.id} className="hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors">
+                            <td className="p-4 font-bold text-xl">{i + 1}</td>
+                            <td className="p-4 font-semibold text-lg flex items-center gap-3">
+                                <span className={`text-2xl ${rank.color}`}>{rank.icon}</span>
+                                <span className="flex flex-col">
+                                    <span>{p.name}</span>
+                                    <span className={`text-xs ${rank.color} font-medium`}>{rank.name}</span>
+                                </span>
+                            </td>
+                            <td className="p-4 font-bold text-red-400 text-lg">{p.points}</td>
+                            <td className="p-4 text-lg">
+                                <span className="flex items-center gap-1">
+                                    <span className="text-yellow-400">🏆</span>
+                                    <span className="font-bold">{p.tournamentWins || 0}</span>
+                                </span>
+                            </td>
+                            <td className="p-4 text-lg">{p.played}</td>
+                            <td className="p-4 text-lg">
+                                <span className="text-green-400">{p.wins}</span>/<span className="text-yellow-400">{p.draws}</span>/<span className="text-red-400">{p.losses}</span>
+                            </td>
+                        </tr>
+                    );
+                })}
             </tbody> 
         </table> 
     </div> 
