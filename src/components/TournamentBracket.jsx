@@ -29,15 +29,9 @@ const PlayoffMatch = ({ match, matchId, tournamentId, onUpdate, disabled }) => {
             const score1 = parseInt(gameScores[i].score1);
             const score2 = parseInt(gameScores[i].score2);
             
-            // Validate that one player has reached 10 points
-            if (score1 < 10 && score2 < 10) {
-                alert(`Spiel ${i + 1}: Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.`);
-                return;
-            }
-            
-            // Validate that the winner has exactly 10 points
-            if (score1 > 10 && score2 > 10) {
-                alert(`Spiel ${i + 1}: Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.`);
+            // Validate that no player can have more than 10 points
+            if (score1 > 10 || score2 > 10) {
+                alert(`Spiel ${i + 1}: Kein Spieler kann mehr als 10 Punkte haben.`);
                 return;
             }
         }

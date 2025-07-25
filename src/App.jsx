@@ -408,15 +408,9 @@ const NeuesSpiel = ({ players, onAddMatch }) => {
         const score1 = Number(data.player1Score);
         const score2 = Number(data.player2Score);
         
-        // Validate that one player has reached 10 points
-        if (score1 < 10 && score2 < 10) {
-            alert('Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.');
-            return;
-        }
-        
-        // Validate that the winner has exactly 10 points
-        if (score1 > 10 && score2 > 10) {
-            alert('Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.');
+        // Validate that no player can have more than 10 points
+        if (score1 > 10 || score2 > 10) {
+            alert('Kein Spieler kann mehr als 10 Punkte haben.');
             return;
         }
         
@@ -428,7 +422,7 @@ const NeuesSpiel = ({ players, onAddMatch }) => {
     return ( 
         <form onSubmit={handleSubmit} className="gradient-card p-8 rounded-lg space-y-6 max-w-2xl mx-auto hover:gradient-card-hover transition-all duration-300"> 
             <div className="mb-4 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
-                <p className="text-blue-300 text-sm">📋 <strong>Spielregeln:</strong> Das Spiel endet, wenn ein Spieler 10 Punkte erreicht. Nur ein Spieler kann 10 Punkte haben.</p>
+                <p className="text-blue-300 text-sm">📋 <strong>Spielregeln:</strong> Spieler können zwischen 0 und 10 Punkte erreichen. Kein Spieler kann mehr als 10 Punkte haben.</p>
             </div>
             <div className="grid grid-cols-2 gap-6"> 
                 <div><label className="block mb-2 text-gray-300">Spieler 1</label><Select styles={customSelectStyles} options={playerOptions} onChange={opt => setData({...data, player1Id: opt.value})} required/></div> 

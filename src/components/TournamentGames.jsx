@@ -34,15 +34,9 @@ const TournamentGames = ({ tournament, onGameUpdate }) => {
         const score1 = parseInt(currentScores.score1, 10);
         const score2 = parseInt(currentScores.score2, 10);
         
-        // Validate that one player has reached 10 points
-        if (score1 < 10 && score2 < 10) {
-            alert('Ein Spieler muss mindestens 10 Punkte erreichen, um das Spiel zu gewinnen.');
-            return;
-        }
-        
-        // Validate that the winner has exactly 10 points
-        if (score1 > 10 && score2 > 10) {
-            alert('Nur ein Spieler kann 10 Punkte erreichen. Das Spiel endet, wenn ein Spieler 10 Punkte erreicht.');
+        // Validate that no player can have more than 10 points
+        if (score1 > 10 || score2 > 10) {
+            alert('Kein Spieler kann mehr als 10 Punkte haben.');
             return;
         }
         
@@ -89,7 +83,7 @@ const TournamentGames = ({ tournament, onGameUpdate }) => {
         <div className="space-y-4 relative">
             {/* Game Rules Info */}
             <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
-                <p className="text-blue-300 text-sm">📋 <strong>Spielregeln:</strong> Das Spiel endet, wenn ein Spieler 10 Punkte erreicht. Nur ein Spieler kann 10 Punkte haben.</p>
+                <p className="text-blue-300 text-sm">📋 <strong>Spielregeln:</strong> Spieler können zwischen 0 und 10 Punkte erreichen. Kein Spieler kann mehr als 10 Punkte haben.</p>
             </div>
             
             {isLoading && (
