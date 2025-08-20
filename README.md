@@ -200,6 +200,13 @@ VITE_FIREBASE_API_KEY=your_api_key
 VITE_FIREBASE_DATABASE_URL=your_database_url
 ```
 
+### Deployment Checklist
+
+1. **Build erstellen**: `npm run build`
+2. **Firebase konfigurieren**: `firebase init hosting`
+3. **Database Rules aktualisieren**: `firebase deploy --only database`
+4. **App deployen**: `firebase deploy`
+
 ## 🔒 Security Features
 
 - **Firebase Database Rules** - Authentifizierte Zugriffe
