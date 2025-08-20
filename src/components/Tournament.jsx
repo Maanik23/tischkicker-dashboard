@@ -7,6 +7,8 @@ import TournamentBracket from './TournamentBracket';
 import TournamentGames from './TournamentGames';
 import TournamentStats from './TournamentStats';
 import ManageParticipants from './ManageParticipants';
+import UniversalStopwatch from './UniversalStopwatch';
+import TournamentPointsMigration from './TournamentPointsMigration';
 
 // This is the definitive stats calculation function. It is robust and prevents all NaN errors.
 const calculateStats = (tournament) => {
@@ -55,7 +57,7 @@ const calculateStats = (tournament) => {
 
 const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
     const [selectedTournamentId, setSelectedTournamentId] = useState(null);
-    const [view, setView] = useState('list'); // list, create, manage_participants, view_tournament
+    const [view, setView] = useState('list'); // list, create, manage_participants, view_tournament, migration
     const [activeTab, setActiveTab] = useState('games');
     
     const db = getDatabase();
@@ -307,11 +309,23 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
             const winner = determineBestOfThreeWinner(playoffs.final.games);
             if (winner) {
                 const winnerPlayer = winner === 'p1' ? playoffs.final.p1 : playoffs.final.p2;
+                const runnerUp = winner === 'p1' ? playoffs.final.p2 : playoffs.final.p1;
+                
+                // Determine 3rd place (loser of qualifier 2)
+                let thirdPlace = null;
+                if (playoffs.qualifier2.p1 && playoffs.qualifier2.p2) {
+                    const qualifier2Winner = determineBestOfThreeWinner(playoffs.qualifier2.games);
+                    if (qualifier2Winner) {
+                        thirdPlace = qualifier2Winner === 'p1' ? playoffs.qualifier2.p1 : playoffs.qualifier2.p2;
+                    }
+                }
                 
                 updates['playoffs/final/winner'] = winnerPlayer;
                 updates['playoffs/final/completed'] = true;
                 updates['status'] = 'finished';
                 updates['winner'] = winnerPlayer;
+                updates['runnerUp'] = runnerUp;
+                updates['thirdPlace'] = thirdPlace;
                 updates['finishedAt'] = Date.now();
             }
         }
@@ -490,6 +504,190 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                 popup.remove();
             }
         }, 15000);
+        
+        // Award tournament points to all participants
+        awardTournamentPoints(tournament);
+    };
+    
+    // Function to complete tournament and award points
+    const completeTournament = (tournament) => {
+        if (!tournament.playoffs?.final?.winner) {
+            alert('Das Turnier kann nicht abgeschlossen werden, da der Gewinner noch nicht feststeht.');
+            return;
+        }
+
+        // Determine final standings before awarding points
+        let tournamentStandings = [];
+        
+        if (tournament.playoffs && tournament.playoffs.final && tournament.playoffs.final.completed) {
+            // Use playoff results to determine standings
+            if (tournament.playoffs.final.winner) {
+                // 1st place (winner of final)
+                const winnerId = tournament.playoffs.final.winner;
+                const winner = tournament.participants.find(p => p.id === winnerId);
+                tournamentStandings.push({ id: winnerId, name: winner?.name || 'Unknown', place: 1, points: 20 });
+                
+                // 2nd place (loser of final - the player who reached the final but lost)
+                let runnerUpId = null;
+                if (tournament.playoffs.final.p1 && tournament.playoffs.final.p2) {
+                    const finalist1Id = tournament.playoffs.final.p1;
+                    const finalist2Id = tournament.playoffs.final.p2;
+                    runnerUpId = (finalist1Id === winnerId) ? finalist2Id : finalist1Id;
+                    if (runnerUpId && runnerUpId !== winnerId) {
+                        const finalist = tournament.participants.find(p => p.id === runnerUpId);
+                        tournamentStandings.push({ id: runnerUpId, name: finalist?.name || 'Unknown', place: 2, points: 15 });
+                    }
+                }
+                
+                // 3rd place (loser of qualifier2 - the player who lost in the 2nd round)
+                if (tournament.playoffs.qualifier2 && tournament.playoffs.qualifier2.p1 && tournament.playoffs.qualifier2.p2) {
+                    const q2p1Id = tournament.playoffs.qualifier2.p1;
+                    const q2p2Id = tournament.playoffs.qualifier2.p2;
+                    const q2WinnerId = tournament.playoffs.qualifier2.winner;
+                    const thirdPlaceId = (q2p1Id && q2p2Id && q2WinnerId) ? (q2WinnerId === q2p1Id ? q2p2Id : q2p1Id) : null;
+                    
+                    if (thirdPlaceId && thirdPlaceId !== winnerId && thirdPlaceId !== runnerUpId && !tournamentStandings.find(s => s.id === thirdPlaceId)) {
+                        const thirdPlace = tournament.participants.find(p => p.id === thirdPlaceId);
+                        tournamentStandings.push({ id: thirdPlaceId, name: thirdPlace?.name || 'Unknown', place: 3, points: 10 });
+                    }
+                }
+            }
+        }
+
+        // Show final standings confirmation
+        let standingsMessage = '🏆 Turnier Finale - Endstand:\n\n';
+        tournamentStandings.forEach(standing => {
+            const placeText = standing.place === 1 ? '🥇 1. Platz' : standing.place === 2 ? '🥈 2. Platz' : '🥉 3. Platz';
+            standingsMessage += `${placeText}: ${standing.name} (+${standing.points} Punkte)\n`;
+        });
+        standingsMessage += '\nAlle anderen Teilnehmer erhalten 5 Teilnahme-Punkte.\n\nMöchten Sie die Punkte jetzt vergeben?';
+
+        if (window.confirm(standingsMessage)) {
+            // Mark tournament as finished
+            const tournamentRef = ref(db, `tournaments/${tournament.id}`);
+            update(tournamentRef, {
+                status: 'finished',
+                finishedAt: Date.now()
+            }).then(() => {
+                // Award points to all participants
+                awardTournamentPoints(tournament);
+                
+                // Show trophy popup
+                const winner = tournament.playoffs.final.winner;
+                showTrophyPopup(winner, { ...tournament, status: 'finished' });
+                
+                alert('Turnier erfolgreich abgeschlossen! Alle Punkte wurden vergeben.');
+            }).catch(error => {
+                console.error('Error completing tournament:', error);
+                alert('Fehler beim Abschließen des Turniers. Bitte versuchen Sie es erneut.');
+            });
+        }
+    };
+
+    // Function to award tournament points to participants
+    const awardTournamentPoints = (tournament) => {
+        if (!tournament.participants || tournament.participants.length === 0) return;
+        
+        // First, determine the actual standings based on tournament results
+        let tournamentStandings = [];
+        
+        if (tournament.playoffs && tournament.playoffs.final && tournament.playoffs.final.completed) {
+            // Use playoff results to determine standings
+            if (tournament.playoffs.final.winner) {
+                // 1st place (winner of final)
+                const winnerId = tournament.playoffs.final.winner;
+                tournamentStandings.push({ id: winnerId, place: 1, points: 20 });
+                
+                // 2nd place (loser of final - the player who reached the final but lost)
+                let runnerUpId = null;
+                if (tournament.playoffs.final.p1 && tournament.playoffs.final.p2) {
+                    const finalist1Id = tournament.playoffs.final.p1;
+                    const finalist2Id = tournament.playoffs.final.p2;
+                    runnerUpId = (finalist1Id === winnerId) ? finalist2Id : finalist1Id;
+                    if (runnerUpId && runnerUpId !== winnerId) {
+                        tournamentStandings.push({ id: runnerUpId, place: 2, points: 15 });
+                    }
+                }
+                
+                // 3rd place (loser of qualifier2 - the player who lost in the 2nd round)
+                if (tournament.playoffs.qualifier2 && tournament.playoffs.qualifier2.p1 && tournament.playoffs.qualifier2.p2) {
+                    const q2p1Id = tournament.playoffs.qualifier2.p1;
+                    const q2p2Id = tournament.playoffs.qualifier2.p2;
+                    const q2WinnerId = tournament.playoffs.qualifier2.winner;
+                    const thirdPlaceId = (q2p1Id && q2p2Id && q2WinnerId) ? (q2WinnerId === q2p1Id ? q2p2Id : q2p1Id) : null;
+                    
+                    if (thirdPlaceId && thirdPlaceId !== winnerId && thirdPlaceId !== runnerUpId && !tournamentStandings.find(s => s.id === thirdPlaceId)) {
+                        tournamentStandings.push({ id: thirdPlaceId, place: 3, points: 10 });
+                    }
+                }
+                
+                // If we still don't have 3rd place, it's the player who lost in qualifier1
+                if (tournamentStandings.length < 3 && tournament.playoffs.qualifier1) {
+                    const q1p1Id = tournament.playoffs.qualifier1.p1;
+                    const q1p2Id = tournament.playoffs.qualifier1.p2;
+                    const q1WinnerId = tournament.playoffs.qualifier1.winner;
+                    const qualifier1LoserId = (q1p1Id && q1p2Id && q1WinnerId) ? (q1WinnerId === q1p1Id ? q1p2Id : q1p1Id) : null;
+                    
+                    if (qualifier1LoserId && !tournamentStandings.find(s => s.id === qualifier1LoserId)) {
+                        tournamentStandings.push({ id: qualifier1LoserId, place: 3, points: 10 });
+                    }
+                }
+            }
+        }
+        
+        console.log('Tournament standings determined:', tournamentStandings);
+        
+        // Award points to all participants
+        tournament.participants.forEach(participant => {
+            const playerRef = ref(db, `players/${participant.id}`);
+            
+            // Get current player data
+            onValue(playerRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const playerData = snapshot.val();
+                    const currentTournamentPoints = playerData.tournamentPoints || 0;
+                    
+                    // Calculate points for this participant
+                    let pointsToAdd = 0;
+                    
+                    // Check if this player has a placement
+                    const standing = tournamentStandings.find(s => s.id === participant.id);
+                    if (standing) {
+                        // Top 3 get only placement points (no participation points)
+                        pointsToAdd = standing.points;
+                        console.log(`Player ${playerData.name} gets ${standing.points} points for ${standing.place}${standing.place === 1 ? 'st' : standing.place === 2 ? 'nd' : 'rd'} place`);
+                    } else {
+                        // Others get only participation points
+                        pointsToAdd = 5;
+                        console.log(`Player ${playerData.name} gets 5 participation points only`);
+                    }
+                    
+                    // Update player's tournament points
+                    update(playerRef, {
+                        tournamentPoints: currentTournamentPoints + pointsToAdd
+                    }).catch(error => {
+                        console.error('Error updating player tournament points:', error);
+                    });
+                }
+            }, { onlyOnce: true });
+        });
+    };
+
+    const completeExistingTournament = (tournament) => {
+        if (window.confirm(`Möchten Sie das Turnier "${tournament.name}" als abgeschlossen markieren? Dies wird Punkte an alle Teilnehmer vergeben.`)) {
+            const tournamentRef = ref(db, `tournaments/${tournament.id}`);
+            update(tournamentRef, {
+                status: 'finished',
+                finishedAt: Date.now()
+            }).then(() => {
+                // Award points to all participants
+                awardTournamentPoints(tournament);
+                alert(`Turnier "${tournament.name}" wurde erfolgreich abgeschlossen und Punkte wurden vergeben!`);
+            }).catch(error => {
+                console.error('Error completing tournament:', error);
+                alert('Fehler beim Abschließen des Turniers. Bitte versuchen Sie es erneut.');
+            });
+        }
     };
 
     const handleDeleteTournament = (tournamentId) => {
@@ -511,6 +709,14 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                     )}
                      {selectedTournament.status === 'playoffs' && <p className="px-4 py-2 bg-blue-600 text-white rounded-lg">Playoffs</p>}
                      {selectedTournament.status === 'finished' && <p className="px-4 py-2 bg-yellow-500 text-black font-bold rounded-lg animate-pulse">Abgeschlossen</p>}
+                    {selectedTournament.status === 'playoffs' && selectedTournament.playoffs?.final?.completed && (
+                        <button 
+                            onClick={() => completeTournament(selectedTournament)}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
+                        >
+                            🏆 Turnier abschließen
+                        </button>
+                    )}
                 </div>
                 <div className="flex border-b border-white/10 mb-6">
                     {selectedTournament.status === 'group_stage' && <TabButton icon={Swords} label="Gruppenspiele" active={activeTab === 'games'} onClick={() => setActiveTab('games')} />}
@@ -559,6 +765,8 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                 return <ManageParticipants tournament={selectedTournament} allPlayers={allPlayers} onFinish={handleStartGroupStage} />;
             case 'view_tournament':
                 return renderTournamentView();
+            case 'migration':
+                return <TournamentPointsMigration />;
             default: // 'list'
                 return (
                     <div className="space-y-6">
@@ -569,16 +777,33 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
                         <div className="gradient-card rounded-lg overflow-hidden hover:gradient-card-hover transition-all duration-300">
                             <div className="p-6 border-b border-white/10 flex justify-between items-center">
                                 <h2 className="text-2xl font-bold text-red-400">Turnierübersicht</h2>
-                                <button onClick={() => setView('create')} className="btn-primary px-6 py-2 text-white rounded-lg">Neues Turnier</button>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setView('migration')} className="btn-secondary px-4 py-2 text-white rounded-lg">Punkte Migration</button>
+                                    <button onClick={() => setView('create')} className="btn-primary px-6 py-2 text-white rounded-lg">Neues Turnier</button>
+                                </div>
                             </div>
                             <ul className="divide-y divide-white/10">
                                 {tournaments.map((t) => (
-                                    <li key={t.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-white/5 cursor-pointer transition-colors" onClick={() => { setSelectedTournamentId(t.id); setView(t.status === 'setup' ? 'manage_participants' : 'view_tournament'); setActiveTab(t.status.includes('playoffs') || t.status === 'finished' ? 'bracket' : 'games');}}>
+                                    <li key={t.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-gray-700/50 cursor-pointer transition-colors" onClick={() => { setSelectedTournamentId(t.id); setView(t.status === 'setup' ? 'manage_participants' : 'view_tournament'); setActiveTab(t.status.includes('playoffs') || t.status === 'finished' ? 'bracket' : 'games');}}>
                                         <div>
                                             <p className="font-bold text-lg">{t.name}</p>
                                             <p className="text-sm text-gray-400">{t.participants?.length || 0} Teilnehmer - <span className={`font-semibold ${t.status === 'group_stage' ? 'text-green-400' : t.status === 'playoffs' ? 'text-blue-400' : t.status === 'finished' ? 'text-yellow-400' : 'text-gray-400'}`}>{t.status}</span></p>
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteTournament(t.id); }} className="mt-2 sm:mt-0 px-3 py-1 bg-red-800 text-white rounded hover:bg-red-700 text-sm opacity-60 hover:opacity-100 transition-all">Löschen</button>
+                                                                                 <div className="flex gap-2 mt-2 sm:mt-0">
+                                             {t.winner && t.status !== 'finished' && (
+                                                 <button 
+                                                     onClick={(e) => { 
+                                                         e.stopPropagation(); 
+                                                         completeExistingTournament(t); 
+                                                     }} 
+                                                     className="px-3 py-1 bg-green-700 text-white rounded hover:bg-green-600 text-sm transition-all"
+                                                     title="Turnier als abgeschlossen markieren"
+                                                 >
+                                                     ✅ Abschließen
+                                                 </button>
+                                             )}
+                                             <button onClick={(e) => { e.stopPropagation(); handleDeleteTournament(t.id); }} className="px-3 py-1 bg-red-800 text-white rounded hover:bg-red-700 text-sm opacity-60 hover:opacity-100 transition-all">Löschen</button>
+                                         </div>
                                     </li>
                                 ))}
                             </ul>
@@ -590,6 +815,9 @@ const Tournament = ({ allPlayers, tournaments, setTournaments }) => {
 
     return (
         <div>
+            {/* Universal Stopwatch - Always visible in tournament mode */}
+            <UniversalStopwatch />
+            
             {view !== 'list' && ( 
                 <button onClick={() => { setView('list'); setSelectedTournamentId(null); }} className="mb-6 btn-secondary px-4 py-2 text-white rounded-lg flex items-center gap-2 hover:red-glow-hover transition-all duration-300">
                     <ArrowLeft size={16} /> Zurück zur Übersicht

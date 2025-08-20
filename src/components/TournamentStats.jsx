@@ -38,7 +38,7 @@ const TournamentStats = ({ stats }) => {
                         </thead>
                         <tbody>
                             {stats.map((p, i) => (
-                                <tr key={p.id} className="hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors">
+                                <tr key={p.id} className="hover:bg-gray-700/50 border-b border-white/5 last:border-0 transition-colors">
                                     <td className="p-3 font-bold">{i + 1}</td>
                                     <td className="p-3 font-semibold">{p.name}</td>
                                     <td className="p-3 font-bold text-orange-400">{p.points || 0}</td>

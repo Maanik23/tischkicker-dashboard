@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 html {
-    font-size: 18px;
+    font-size: 16px;
 }
 
 body {
-    @apply text-lg text-white font-sans;
+    @apply text-base text-white font-sans;
     background: radial-gradient(ellipse at top left, #000 0%, #1a0000 25%, #330000 45%, #4d0000 65%, #330000 80%, #1a0000 90%, #000 100%);
     background-attachment: fixed;
     min-height: 100vh;
@@ -69,6 +69,81 @@ body {
     border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* History Sidebar Styles */
+.history-sidebar {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.85) 100%);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(255, 0, 0, 0.3);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.history-sidebar-enter {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.history-sidebar-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+    transition: all 0.3s ease-out;
+}
+
+.history-sidebar-exit {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.history-sidebar-exit-active {
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in;
+}
+
+/* Match Type Indicators */
+.match-type-singles {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.match-type-doubles {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Enhanced form styles */
+.form-input-enhanced {
+    background: linear-gradient(135deg, rgba(55, 65, 81, 0.8) 0%, rgba(55, 65, 81, 0.6) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.form-input-enhanced:focus {
+    background: linear-gradient(135deg, rgba(55, 65, 81, 0.9) 0%, rgba(55, 65, 81, 0.7) 100%);
+    border-color: rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+}
+
+/* Ensure dropdowns and select elements have proper dark styling */
+select, select option {
+    background-color: #1f2937 !important;
+    color: white !important;
+    border: 1px solid #4b5563 !important;
+}
+
+select:focus {
+    border-color: #ef4444 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+select option:hover {
+    background-color: #374151 !important;
+}
+
+select option:checked {
+    background-color: #dc2626 !important;
+}
+
 /* Custom animations for trophy popup */
 @keyframes fade-in {
     from { opacity: 0; }
@@ -87,6 +162,16 @@ body {
     50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.6); }
 }
 
+@keyframes slide-in-right {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-out-right {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
 .animate-fade-in {
     animation: fade-in 0.3s ease-out;
 }
@@ -97,6 +182,14 @@ body {
 
 .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-slide-out-right {
+    animation: slide-out-right 0.3s ease-in;
 }
 
 /* Enhanced scrollbar */
@@ -115,4 +208,106 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #ff0000 0%, #cc0000 100%);
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+    .history-sidebar {
+        width: 100vw;
+        max-width: 100vw;
+    }
+    
+    .gradient-card {
+        margin: 0.5rem;
+        padding: 1rem;
+    }
+    
+    /* Mobile-specific sidebar adjustments */
+    .sidebar {
+        width: 100vw;
+        max-width: 100vw;
+    }
+    
+    /* Ensure mobile menu button is visible */
+    .mobile-menu-button {
+        z-index: 60;
+    }
+    
+    /* Mobile form improvements */
+    input, select, textarea {
+        font-size: 16px !important; /* Prevents zoom on iOS */
+    }
+    
+    /* Mobile chart improvements */
+    .recharts-wrapper {
+        font-size: 12px;
+    }
+    
+    /* Mobile table improvements */
+    table {
+        font-size: 14px;
+    }
+    
+    /* Mobile button improvements */
+    button {
+        min-height: 44px; /* Touch-friendly button size */
+    }
+}
+
+/* Loading states */
+.loading-shimmer {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 25%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Mobile-first responsive utilities */
+@media (max-width: 640px) {
+    .text-responsive {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+    
+    .p-responsive {
+        padding: 1rem;
+    }
+    
+    .m-responsive {
+        margin: 1rem;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+    .text-responsive {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+    
+    .p-responsive {
+        padding: 1.5rem;
+    }
+    
+    .m-responsive {
+        margin: 1.5rem;
+    }
+}
+
+@media (min-width: 1025px) {
+    .text-responsive {
+        font-size: 1.125rem;
+        line-height: 1.75rem;
+    }
+    
+    .p-responsive {
+        padding: 2rem;
+    }
+    
+    .m-responsive {
+        margin: 2rem;
+    }
 }

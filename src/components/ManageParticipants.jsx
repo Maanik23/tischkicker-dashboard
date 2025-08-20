@@ -62,7 +62,7 @@ const ManageParticipants = ({ tournament, allPlayers, onFinish }) => {
                 <h3 className="text-xl font-semibold mb-3 text-gray-300">Aktuelle Teilnehmer ({participants.length})</h3>
                 <ul className="space-y-2">
                     {participants.map(p => (
-                        <li key={p.id} className="flex justify-between items-center bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors">
+                                                        <li key={p.id} className="flex justify-between items-center bg-gray-800/50 border border-gray-600 p-3 rounded-lg hover:bg-gray-700/50 transition-colors">
                             <span className="text-white">{p.name}</span>
                             <button onClick={() => handleRemovePlayer(p.id)} className="text-red-500 hover:text-red-400 transition-colors">Entfernen</button>
                         </li>

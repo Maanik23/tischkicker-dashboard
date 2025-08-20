@@ -92,7 +92,7 @@ const TournamentGames = ({ tournament, onGameUpdate }) => {
                 </div>
             )}
             {tournament.games?.map((game) => (
-                <div key={game.id} className={`p-4 rounded-lg flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-300 ${isPlayed(game) ? 'bg-green-800/20 border-l-4 border-green-500' : 'bg-white/5'}`}>
+                <div key={game.id} className={`p-4 rounded-lg flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-300 ${isPlayed(game) ? 'bg-green-800/20 border-l-4 border-green-500' : 'bg-gray-800/50 border border-gray-600'}`}>
                     <div className="font-semibold text-lg text-center md:text-left flex-1">
                         <span>{game.player1.name}</span>
                         <span className="text-gray-400 mx-2">vs</span>
